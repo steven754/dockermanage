@@ -29,6 +29,10 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 
+# 禁止 toolchain 自动下载：go.mod 声明的版本必须与本镜像的 Go 一致，
+# 否则构建时会静默拉取新版工具链，导致依赖树被意外升级
+ENV GOTOOLCHAIN=local
+
 WORKDIR /app
 
 COPY backend/go.mod backend/go.sum ./
@@ -40,12 +44,13 @@ COPY backend/ ./
 COPY --from=frontend /app/dist ./internal/server/web/dist
 
 # CGO_ENABLED=0：使用 modernc.org/sqlite（纯 Go 驱动），产出静态二进制
+# 注意：-X 必须写完整的包路径，写错不会报错、只会静默失效
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags="-s -w \
-        -X main.Version=${VERSION} \
-        -X main.Commit=${COMMIT} \
-        -X main.BuildTime=${BUILD_TIME}" \
+        -X github.com/steven754/dockermanage/backend/internal/version.Version=${VERSION} \
+        -X github.com/steven754/dockermanage/backend/internal/version.Commit=${COMMIT} \
+        -X github.com/steven754/dockermanage/backend/internal/version.BuildTime=${BUILD_TIME}" \
       -o /out/panel ./cmd/panel
 
 # ------------------------------------------------------------------------------
@@ -64,9 +69,9 @@ RUN apk add --no-cache \
       curl \
       && rm -rf /var/cache/apk/*
 
-# 非 root 运行（docker.sock 访问由 group 权限保证，见 docker-compose.yml）
-RUN addgroup -S -g 1000 panel \
- && adduser  -S -u 1000 -G panel panel
+# 说明：容器以 root 运行。原因是特权模式下的容器 exec（终端 tab）与
+# /var/run/docker.sock 访问都需要较高权限，这与 Portainer / Yacht 的做法一致。
+# 若要收敛权限，v1.2 改用 Docker Socket Proxy + 非 root 运行（见 SPEC §8.1）。
 
 COPY --from=backend /out/panel /usr/local/bin/panel
 

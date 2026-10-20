@@ -41,8 +41,10 @@ build-frontend: ## 构建前端到 frontend/dist
 
 .PHONY: build-backend
 build-backend: ## 构建后端二进制到 backend/bin/panel
-	cd $(BACKEND) && CGO_ENABLED=0 go build -trimpath \
-	  -ldflags="-s -w -X main.Version=$(VERSION) -X main.Commit=$(COMMIT)" \
+	cd $(BACKEND) && CGO_ENABLED=0 GOTOOLCHAIN=local go build -trimpath \
+	  -ldflags="-s -w \
+	    -X github.com/steven754/dockermanage/backend/internal/version.Version=$(VERSION) \
+	    -X github.com/steven754/dockermanage/backend/internal/version.Commit=$(COMMIT)" \
 	  -o bin/panel ./cmd/panel
 
 # ---------------------------------------------------------------- 质量

@@ -70,8 +70,8 @@ func NewRouter(d Deps) http.Handler {
 	authed(http.MethodPost, "/api/v1/images/pull", h.PullImage)
 	authed(http.MethodPost, "/api/v1/images/prune", h.PruneImages)
 	authed(http.MethodPost, "/api/v1/images/{id}/tag", h.TagImage)
-	// 镜像 / 网络的引用可能带斜杠（如 myrepo/nginx:1.27），用正则参数整段匹配
-	authed(http.MethodDelete, "/api/v1/images/{id:.*}", h.DeleteImage)
+	// 镜像 / 网络的引用可能带斜杠（如 myrepo/nginx:1.27），用通配路由整段匹配
+	authed(http.MethodDelete, "/api/v1/images/*", h.DeleteImage)
 
 	// 卷
 	authed(http.MethodGet, "/api/v1/volumes", h.ListVolumes)
@@ -80,7 +80,7 @@ func NewRouter(d Deps) http.Handler {
 
 	// 网络
 	authed(http.MethodGet, "/api/v1/networks", h.ListNetworks)
-	authed(http.MethodDelete, "/api/v1/networks/{id:.*}", h.DeleteNetwork)
+	authed(http.MethodDelete, "/api/v1/networks/*", h.DeleteNetwork)
 
 	// 事件
 	authed(http.MethodGet, "/api/v1/events", h.ListEvents)

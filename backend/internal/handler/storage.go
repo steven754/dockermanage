@@ -57,7 +57,7 @@ func (h *Handler) ListNetworks(w http.ResponseWriter, r *http.Request) {
 
 // DeleteNetwork 处理 DELETE /api/v1/networks/:id
 func (h *Handler) DeleteNetwork(w http.ResponseWriter, r *http.Request) {
-	id := chiURLParam(r, "id")
+	id := chiWildcardParam(r)
 	logInput(r, "networkId", id)
 
 	if err := h.networks.Remove(r.Context(), id); err != nil {

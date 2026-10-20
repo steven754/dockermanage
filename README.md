@@ -14,13 +14,16 @@
 | 技术方案（架构 / API / 数据模型 / 部署） | ✅ 完成 | [SPEC.md](./SPEC.md) §4-§13 |
 | 14 项关键决策拍板 | ✅ 完成 | [SPEC.md](./SPEC.md) §15.2 |
 | UI 设计稿（4 屏） | ✅ 完成 | [ui-mocks/](./ui-mocks/) |
-| 开发脚手架 | ⬜ 未开始 | — |
-| 前端实现 | ⬜ 未开始 | — |
-| 后端实现 | ⬜ 未开始 | — |
+| 工程基线（Dockerfile / compose / CI / Makefile） | ✅ 完成 | [Dockerfile](./Dockerfile) · [docker-compose.yml](./docker-compose.yml) |
+| 后端实现（Go，81 文件 / 10.6k 行） | ✅ 完成 | [backend/](./backend/) |
+| 前端实现（React，68 源文件 / 9.5k 行） | ✅ 完成 | [frontend/](./frontend/) |
+| 端到端联调（28 项检查全过） | ✅ 完成 | 静态检查 / 鉴权流程 / 8 个核心接口 / SSE / SPA 回退 |
+| 容器化部署验证 | 🔄 验证中 | `make docker-build` |
 
 ## 文档
 
-- **[SPEC.md](./SPEC.md)** — 技术规格说明书（751 行）：功能范围、架构、模块划分、REST/SSE/WebSocket API、SQLite 表结构、安全模型、部署方案、路线图
+- **[SPEC.md](./SPEC.md)** — 技术规格说明书：功能范围、架构、模块划分、REST/SSE/WebSocket API、SQLite 表结构、安全模型、部署方案、路线图
+- **[docs/api-contract.md](./docs/api-contract.md)** — API 契约：各接口请求体/响应体的确切 JSON 形状、流式协议帧格式
 - **[ui-mocks/README.md](./ui-mocks/README.md)** — UI 设计说明：设计 token、组件规范、渲染自检记录
 
 ## UI 设计稿
@@ -40,7 +43,9 @@
 cd ui-mocks && ./.shoot.sh 1440 900
 ```
 
-## 快速开始（规划中）
+## 快速开始
+
+### 容器部署（推荐）
 
 ```bash
 git clone https://github.com/steven754/dockermanage.git
@@ -48,9 +53,36 @@ cd dockermanage
 docker compose up -d
 ```
 
-访问 `http://<host>:8080`，首次启动会在日志中打印随机初始密码。
+访问 `http://<host>:8080`。首次启动会生成随机初始密码，**在容器日志里打印一次**：
 
-> 该流程待实现，当前仓库仅含规格与设计稿。
+```bash
+docker compose logs panel | grep '初始管理员密码'
+```
+
+同时写入 `data/.password`（权限 0600）。登录后系统会强制你立即改密。
+
+> 首次启动后请立刻改密码。面板默认只监听 HTTP，**公网暴露请务必挂在反向代理后面并启用 TLS**。
+
+### 本地开发
+
+```bash
+make install          # 安装前后端依赖
+make dev-backend      # 后端 → :8080
+make dev-frontend     # 前端 → :5173（/api 代理到 :8080）
+```
+
+> macOS + Docker Desktop 时后端需要显式指定 socket：
+> `export DOCKER_HOST=unix://$(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|^unix://||')`
+
+### 常用命令
+
+```bash
+make help          # 列出全部命令
+make test          # 后端竞态测试 + 前端构建
+make lint          # go vet + gofmt + eslint
+make docker-build  # 构建本机架构镜像
+make docker-release# 构建并推送 amd64 + arm64 双架构镜像
+```
 
 ## 范围说明
 
