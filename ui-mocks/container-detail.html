@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>postgres-main · 容器详情 · Dockermanage</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode:'class', theme:{ extend:{ colors:{
+      bg:{base:'#09090b',elev:'#0f0f12',card:'#18181b',cardHover:'#1f1f23',muted:'#27272a'},
+      fg:{primary:'#fafafa',secondary:'#d4d4d8',muted:'#a1a1aa',subtle:'#71717a'},
+      border:{DEFAULT:'#27272a',strong:'#3f3f46'},
+      brand:{DEFAULT:'#3b82f6',hover:'#2563eb',soft:'rgba(59,130,246,0.1)'},
+    }, fontFamily:{ sans:['Inter','system-ui'], mono:['JetBrains Mono','ui-monospace'] }}}}
+  </script>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body class="bg-bg-base text-fg-primary">
+
+<!-- 顶栏 -->
+<header class="topbar flex items-center px-4 gap-4">
+  <!-- 移动端侧栏开关 -->
+  <button onclick="toggleSidebar()" class="lg:hidden btn btn-ghost -ml-1 shrink-0" title="菜单" aria-label="打开菜单">
+    <i data-lucide="menu" class="w-4 h-4"></i>
+  </button>
+  <a href="index.html" class="flex items-center gap-2.5">
+    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-cyan-400 flex items-center justify-center">
+      <i data-lucide="container" class="text-white" style="width:18px;height:18px"></i>
+    </div>
+    <span class="font-semibold">Dockermanage</span>
+  </a>
+  <button class="ml-4 flex items-center gap-2 sm:flex-1 sm:max-w-xl px-3 py-1.5 rounded-md bg-bg-card border border-border text-fg-muted text-sm">
+    <i data-lucide="search" class="w-3.5 h-3.5 shrink-0"></i>
+    <span class="flex-1 min-w-0 truncate text-left hidden sm:block">搜索…</span>
+    <span class="kbd shrink-0">⌘</span><span class="kbd shrink-0">K</span>
+  </button>
+  <div class="ml-auto flex items-center gap-1">
+    <button class="btn btn-ghost"><i data-lucide="bell" class="w-4 h-4"></i></button>
+    <button class="btn btn-ghost"><i data-lucide="settings" class="w-4 h-4"></i></button>
+    <div class="w-px h-5 bg-border mx-1"></div>
+    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-[11px] font-semibold">S</div>
+  </div>
+</header>
+
+<!-- 移动端侧栏遮罩 -->
+<div id="sidebarBackdrop" class="hidden sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+<div class="flex">
+<!-- 侧栏 -->
+<aside id="sidebar" class="sidebar-fixed w-60 shrink-0 border-r border-border bg-bg-elev h-[calc(100vh-56px)] sticky top-14 p-3 flex flex-col gap-1">
+  <div class="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">概览</div>
+  <a href="index.html" class="nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i>Dashboard</a>
+  <a class="nav-item"><i data-lucide="activity" class="nav-icon"></i>事件流</a>
+  <div class="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">资源</div>
+  <a href="containers.html" class="nav-item active"><i data-lucide="container" class="nav-icon"></i>容器 <span class="ml-auto text-xs text-fg-subtle">12</span></a>
+  <a class="nav-item"><i data-lucide="layers" class="nav-icon"></i>镜像</a>
+  <a class="nav-item"><i data-lucide="database" class="nav-icon"></i>卷</a>
+  <a class="nav-item"><i data-lucide="network" class="nav-icon"></i>网络</a>
+  <a href="compose.html" class="nav-item"><i data-lucide="file-code-2" class="nav-icon"></i>Compose</a>
+  <div class="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">工具</div>
+  <a class="nav-item"><i data-lucide="folder-tree" class="nav-icon"></i>文件浏览器</a>
+  <a class="nav-item"><i data-lucide="refresh-ccw" class="nav-icon"></i>一键更新</a>
+  <a class="nav-item"><i data-lucide="bell-ring" class="nav-icon"></i>告警</a>
+  <a class="nav-item"><i data-lucide="layout-template" class="nav-icon"></i>应用模板</a>
+</aside>
+
+<!-- 主区 -->
+<main class="flex-1 min-w-0 p-6 lg:p-8 space-y-5">
+
+  <!-- 面包屑 + 标题 -->
+  <div>
+    <div class="flex items-center gap-1.5 text-xs text-fg-muted mb-2">
+      <a href="containers.html" class="hover:text-fg-secondary">容器</a>
+      <i data-lucide="chevron-right" class="w-3 h-3"></i>
+      <span class="text-fg-secondary">postgres-main</span>
+    </div>
+
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-blue-500/15 flex items-center justify-center">
+          <i data-lucide="database" class="w-6 h-6 text-blue-400"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-semibold tracking-tight">postgres-main</h1>
+            <span class="badge badge-running"><span class="dot-running"></span>running</span>
+            <span class="badge badge-primary"><span class="dot-running"></span>healthy</span>
+          </div>
+          <p class="text-sm text-fg-muted mt-1 font-mono">
+            <span class="text-fg-secondary">postgres:16</span> ·
+            ID <span class="text-fg-secondary">a3f9c2e8b1d4</span> ·
+            创建于 45 天前
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="btn"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>重启</button>
+        <button class="btn"><i data-lucide="square" class="w-3.5 h-3.5"></i>停止</button>
+        <button class="btn"><i data-lucide="git-pull-request" class="w-3.5 h-3.5"></i>更新镜像</button>
+        <button class="btn btn-danger"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i>删除</button>
+        <button class="btn btn-primary"><i data-lucide="terminal-square" class="w-3.5 h-3.5"></i>进入终端</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 顶部概览 4 卡 -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="elev-card p-4">
+      <div class="text-[11px] text-fg-subtle uppercase tracking-wider">CPU</div>
+      <div class="mt-1 flex items-end gap-1">
+        <span class="text-2xl font-semibold font-mono">3.8</span>
+        <span class="text-xs text-fg-muted mb-1">%</span>
+      </div>
+      <div class="text-[11px] text-fg-subtle mt-1">限额 <span class="font-mono text-fg-secondary">2.0</span> 核</div>
+    </div>
+    <div class="elev-card p-4">
+      <div class="text-[11px] text-fg-subtle uppercase tracking-wider">内存</div>
+      <div class="mt-1 flex items-end gap-1">
+        <span class="text-2xl font-semibold font-mono">412</span>
+        <span class="text-xs text-fg-muted mb-1">MB</span>
+        <span class="text-xs text-fg-subtle mb-1 ml-1">/ 2 GB</span>
+      </div>
+      <div class="meter mt-2"><span style="width:20%"></span></div>
+    </div>
+    <div class="elev-card p-4">
+      <div class="text-[11px] text-fg-subtle uppercase tracking-wider">网络 I/O</div>
+      <div class="mt-1 grid grid-cols-2 gap-2 text-sm font-mono">
+        <div><span class="text-fg-subtle text-[10px]">RX</span> 1.4 MB/s</div>
+        <div><span class="text-fg-subtle text-[10px]">TX</span> 0.6 MB/s</div>
+      </div>
+    </div>
+    <div class="elev-card p-4">
+      <div class="text-[11px] text-fg-subtle uppercase tracking-wider">磁盘 I/O</div>
+      <div class="mt-1 grid grid-cols-2 gap-2 text-sm font-mono">
+        <div><span class="text-fg-subtle text-[10px]">读</span> 0.2 MB/s</div>
+        <div><span class="text-fg-subtle text-[10px]">写</span> 1.8 MB/s</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <div class="border-b border-border flex items-center gap-1">
+    <button class="tab active" data-tab="stats"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>Stats</button>
+    <button class="tab" data-tab="logs"><i data-lucide="scroll-text" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>Logs</button>
+    <button class="tab" data-tab="terminal"><i data-lucide="terminal-square" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>Terminal</button>
+    <button class="tab" data-tab="inspect"><i data-lucide="file-json" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>Inspect</button>
+    <button class="tab" data-tab="files"><i data-lucide="folder-tree" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>Files</button>
+    <button class="tab" data-tab="env"><i data-lucide="settings-2" class="w-3.5 h-3.5 inline -mt-0.5 mr-1"></i>环境变量</button>
+
+    <div class="ml-auto flex items-center gap-2 pb-1.5">
+      <span class="text-[11px] text-fg-subtle">每 <span class="font-mono text-fg-secondary">5s</span> 刷新</span>
+      <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
+    </div>
+  </div>
+
+  <!-- ===== Stats 面板 ===== -->
+  <section id="panel-stats" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="elev-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium">CPU 使用率</h3>
+        <span class="text-xs text-fg-subtle font-mono">最近 5 分钟</span>
+      </div>
+      <div class="h-44"><canvas id="cpuChart"></canvas></div>
+    </div>
+    <div class="elev-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium">内存使用</h3>
+        <span class="text-xs text-fg-subtle font-mono">RSS / Cache</span>
+      </div>
+      <div class="h-44"><canvas id="memChart"></canvas></div>
+    </div>
+    <div class="elev-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium">网络吞吐</h3>
+        <span class="text-xs text-fg-subtle font-mono">RX / TX</span>
+      </div>
+      <div class="h-44"><canvas id="netChart"></canvas></div>
+    </div>
+    <div class="elev-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium">块 I/O</h3>
+        <span class="text-xs text-fg-subtle font-mono">读 / 写</span>
+      </div>
+      <div class="h-44"><canvas id="blkChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ===== Logs 面板（默认隐藏） ===== -->
+  <section id="panel-logs" class="hidden space-y-3">
+    <div class="elev-card overflow-hidden">
+      <div class="flex items-center gap-2 p-3 border-b border-border flex-wrap">
+        <button class="btn h-8 px-2.5 text-xs"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>刷新</button>
+        <button class="btn h-8 px-2.5 text-xs"><i data-lucide="play" class="w-3.5 h-3.5"></i>实时跟踪</button>
+        <button class="btn h-8 px-2.5 text-xs"><i data-lucide="download" class="w-3.5 h-3.5"></i>导出</button>
+        <div class="w-px h-5 bg-border mx-1"></div>
+        <button class="btn h-8 px-2.5 text-xs"><span class="dot-running"></span>stdout</button>
+        <button class="btn h-8 px-2.5 text-xs"><span class="dot-error"></span>stderr</button>
+        <div class="ml-auto relative">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle"></i>
+          <input class="input pl-8 h-8 text-xs w-56" placeholder="过滤日志…" />
+        </div>
+      </div>
+
+      <div class="terminal h-[460px] max-h-[460px]">
+        <div><span class="t-dim">2026-10-16T07:18:42.114Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">postgres</span>  database system is ready to accept connections</div>
+        <div><span class="t-dim">2026-10-16T07:19:01.502Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">checkpoint</span> complete: wrote <span class="t-num">42</span> buffers (<span class="t-num">0.3%</span>)</div>
+        <div><span class="t-dim">2026-10-16T07:19:30.118Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">autovacuum</span> launcher process started</div>
+        <div><span class="t-dim">2026-10-16T07:20:08.661Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">connection</span> received: host=<span class="t-str">10.0.0.7</span> port=<span class="t-num">51234</span></div>
+        <div><span class="t-dim">2026-10-16T07:20:14.227Z</span> <span class="t-warn">[WARN]</span>  <span class="t-key">slow query</span>  duration: <span class="t-num">1284.221</span> ms  statement:
+          <span class="t-str">SELECT id, name FROM users WHERE email = $1</span></div>
+        <div><span class="t-dim">2026-10-16T07:21:02.448Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">checkpoint</span> complete: wrote <span class="t-num">31</span> buffers (<span class="t-num">0.2%</span>)</div>
+        <div><span class="t-dim">2026-10-16T07:21:48.117Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">connection</span> authorized: user=<span class="t-str">app_user</span> database=<span class="t-str">nextcloud</span></div>
+        <div><span class="t-dim">2026-10-16T07:22:15.812Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">connection</span> received: host=<span class="t-str">10.0.0.12</span> port=<span class="t-num">51298</span></div>
+        <div><span class="t-dim">2026-10-16T07:23:01.054Z</span> <span class="t-error">[ERROR]</span> <span class="t-key">connection</span>  FATAL:  password authentication failed for user <span class="t-str">"admin"</span></div>
+        <div><span class="t-dim">2026-10-16T07:23:01.058Z</span> <span class="t-dim">[DEBUG]</span>  <span class="t-key">detail</span>  Connection matched pg_hba.conf line <span class="t-num">92</span>: <span class="t-str">"host all all 0.0.0.0/0 md5"</span></div>
+        <div><span class="t-dim">2026-10-16T07:24:33.421Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">checkpoint</span> complete: wrote <span class="t-num">58</span> buffers (<span class="t-num">0.4%</span>)</div>
+        <div><span class="t-dim">2026-10-16T07:25:11.092Z</span> <span class="t-warn">[WARN]</span>  <span class="t-key">autovacuum</span> found orphan pages in <span class="t-str">public.sessions</span></div>
+        <div><span class="t-dim">2026-10-16T07:26:44.661Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">connection</span> received: host=<span class="t-str">10.0.0.7</span> port=<span class="t-num">51402</span></div>
+        <div><span class="t-dim">2026-10-16T07:27:18.227Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">checkpoint</span> complete: wrote <span class="t-num">19</span> buffers (<span class="t-num">0.1%</span>)</div>
+        <div><span class="t-dim">2026-10-16T07:28:01.998Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">statistics</span>  CPU usage: user <span class="t-num">0.92s</span> system <span class="t-num">0.18s</span></div>
+        <div><span class="t-dim">2026-10-16T07:28:54.114Z</span> <span class="t-error">[ERROR]</span> <span class="t-key">disk full</span>  could not write to file <span class="t-str">"base/16384/2841"</span>: No space left on device</div>
+        <div><span class="t-dim">2026-10-16T07:29:02.665Z</span> <span class="t-warn">[WARN]</span>  <span class="t-key">wal</span>  write-ahead log retention exceeded threshold: <span class="t-num">5.4 GB</span></div>
+        <div><span class="t-dim">2026-10-16T07:30:01.118Z</span> <span class="t-info">[INFO]</span>  <span class="t-key">checkpoint</span> complete: wrote <span class="t-num">74</span> buffers (<span class="t-num">0.5%</span>)</div>
+        <div class="t-prompt">postgres=# █</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Terminal 面板 ===== -->
+  <section id="panel-terminal" class="hidden space-y-3">
+    <div class="elev-card overflow-hidden">
+      <div class="flex items-center gap-2 p-3 border-b border-border">
+        <span class="badge badge-running"><span class="dot-running"></span>connected</span>
+        <span class="text-xs text-fg-muted font-mono">/bin/bash · tty1 · 80×24</span>
+        <div class="ml-auto flex items-center gap-2">
+          <button class="btn btn-ghost h-7 w-7 p-0" title="复制"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+          <button class="btn btn-ghost h-7 w-7 p-0" title="清屏"><i data-lucide="eraser" class="w-3.5 h-3.5"></i></button>
+          <button class="btn btn-ghost h-7 w-7 p-0" title="全屏"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+          <button class="btn btn-ghost h-7 w-7 p-0 text-red-400" title="断开"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+      <div class="terminal h-[460px] max-h-[460px]">
+        <div><span class="t-dim">root@a3f9c2e8b1d4</span><span class="t-prompt">:/</span><span class="t-info">#</span> <span class="t-str">ls</span> -la /var/lib/postgresql/data/</div>
+        <div><span class="t-dim">total 124</span></div>
+        <div><span class="t-key">drwx------</span> <span class="t-num">19</span> postgres postgres  <span class="t-num">4096</span> Oct 16 06:12 <span class="t-info">.</span></div>
+        <div><span class="t-key">drwxr-xr-x</span> <span class="t-num"> 3</span> root      root       <span class="t-num">4096</span> Oct  1 02:18 <span class="t-info">..</span></div>
+        <div><span class="t-key">-rw-rw-r--</span> <span class="t-num"> 1</span> postgres postgres   <span class="t-num">88</span> Oct 16 06:12 <span class="t-info">PG_VERSION</span></div>
+        <div><span class="t-key">drwxrwxrwx</span> <span class="t-num"> 2</span> postgres postgres  <span class="t-num">4096</span> Oct 16 06:12 <span class="t-info">base</span></div>
+        <div><span class="t-key">drwxrwxrwx</span> <span class="t-num"> 2</span> postgres postgres  <span class="t-num">4096</span> Oct 16 06:12 <span class="t-info">global</span></div>
+        <div><span class="t-key">drwxrwxrwx</span> <span class="t-num"> 2</span> postgres postgres  <span class="t-num">4096</span> Oct 16 06:12 <span class="t-info">pg_wal</span></div>
+        <div><span class="t-key">drwxrwxrwx</span> <span class="t-num"> 2</span> postgres postgres  <span class="t-num">4096</span> Oct 16 06:12 <span class="t-info">pg_stat</span></div>
+        <div><span class="t-key">-rw-r--r--</span> <span class="t-num"> 1</span> postgres postgres  <span class="t-num">132</span> Oct  1 02:18 <span class="t-info">postgresql.conf</span></div>
+        <div><span class="t-dim">root@a3f9c2e8b1d4</span><span class="t-prompt">:/</span><span class="t-info">#</span> <span class="t-str">psql</span> -U postgres -c <span class="t-key">"SELECT version()"</span></div>
+        <div>                                                       <span class="t-info">version</span>                                                       </div>
+        <div><span class="t-info">-----------------------------------------------------------------------------------------------------------------------</span></div>
+        <div> <span class="t-str">PostgreSQL 16.4 (Debian 16.4-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit</span></div>
+        <div><span class="t-info">(1 row)</span></div>
+        <div><span class="t-dim">root@a3f9c2e8b1d4</span><span class="t-prompt">:/</span><span class="t-info">#</span> <span class="t-str">du</span> -sh /var/lib/postgresql/data/* | <span class="t-key">sort</span> -h | <span class="t-key">tail</span> -5</div>
+        <div><span class="t-num">2.1M</span>    /var/lib/postgresql/data/PG_VERSION</div>
+        <div><span class="t-num">8.5M</span>    /var/lib/postgresql/data/postgresql.conf</div>
+        <div><span class="t-num">128M</span>   /var/lib/postgresql/data/pg_wal</div>
+        <div><span class="t-num">4.2G</span>   /var/lib/postgresql/data/base</div>
+        <div><span class="t-num">12G</span>    /var/lib/postgresql/data/global</div>
+        <div><span class="t-warn">[WARN]</span> pg_wal 占用较大，建议 checkpoint + archive</div>
+        <div><span class="t-dim">root@a3f9c2e8b1d4</span><span class="t-prompt">:/</span><span class="t-info">#</span> <span class="t-str">psql</span> -U postgres -c <span class="t-key">"SELECT pg_size_pretty(sum(pg_database_size(oid))) FROM pg_database"</span></div>
+        <div> <span class="t-info">pg_size_pretty</span> </div>
+        <div><span class="t-info">----------------</span></div>
+        <div> <span class="t-str">12 GB</span></div>
+        <div><span class="t-info">(1 row)</span></div>
+        <div><span class="t-dim">root@a3f9c2e8b1d4</span><span class="t-prompt">:/</span><span class="t-info">#</span> <span class="t-prompt">█</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Inspect 面板 ===== -->
+  <section id="panel-inspect" class="hidden">
+    <div class="elev-card overflow-hidden">
+      <div class="flex items-center justify-between p-3 border-b border-border">
+        <h3 class="text-sm font-medium">容器配置 · JSON</h3>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+          <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+      <div class="code-block h-[520px] max-h-[520px]">
+<div><span class="yaml-cmt">// docker inspect postgres-main</span></div>
+<div><span class="yaml-punc">{</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"Id"</span><span class="yaml-punc">:</span> <span class="yaml-str">"a3f9c2e8b1d4..."</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"Name"</span><span class="yaml-punc">:</span> <span class="yaml-str">"/postgres-main"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"Image"</span><span class="yaml-punc">:</span> <span class="yaml-str">"postgres:16"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"State"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Status"</span><span class="yaml-punc">:</span> <span class="yaml-str">"running"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Running"</span><span class="yaml-punc">:</span> <span class="yaml-val">true</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"StartedAt"</span><span class="yaml-punc">:</span> <span class="yaml-str">"2026-10-16T06:12:48.114Z"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Health"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span> <span class="yaml-key">"Status"</span><span class="yaml-punc">:</span> <span class="yaml-str">"healthy"</span> <span class="yaml-punc">}</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-punc">},</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"Config"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Env"</span><span class="yaml-punc">:</span> <span class="yaml-punc">[</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-str">"POSTGRES_USER=app_user"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-str">"POSTGRES_DB=nextcloud"</span><span class="yaml-punc">,</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-str">"PGDATA=/var/lib/postgresql/data/pgdata"</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-punc">],</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Cmd"</span><span class="yaml-punc">:</span> <span class="yaml-punc">[</span><span class="yaml-str">"postgres"</span><span class="yaml-punc">],</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"WorkingDir"</span><span class="yaml-punc">:</span> <span class="yaml-str">"/"</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-punc">},</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"HostConfig"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"RestartPolicy"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span> <span class="yaml-key">"Name"</span><span class="yaml-punc">:</span> <span class="yaml-str">"unless-stopped"</span> <span class="yaml-punc">},</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Memory"</span><span class="yaml-punc">:</span> <span class="yaml-val">2147483648</span><span class="yaml-punc">,</span> <span class="yaml-cmt">// 2 GB</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"NanoCpus"</span><span class="yaml-punc">:</span> <span class="yaml-val">2000000000</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-punc">},</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"Mounts"</span><span class="yaml-punc">:</span> <span class="yaml-punc">[</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-punc">{</span> <span class="yaml-key">"Type"</span><span class="yaml-punc">:</span> <span class="yaml-str">"volume"</span><span class="yaml-punc">,</span> <span class="yaml-key">"Name"</span><span class="yaml-punc">:</span> <span class="yaml-str">"postgres_data"</span> <span class="yaml-punc">}</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-punc">],</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-key">"NetworkSettings"</span><span class="yaml-punc">:</span> <span class="yaml-punc">{</span></div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">"Networks"</span><span class="yaml-punc">:</span> <span class="yaml-punc">[</span><span class="yaml-str">"backend"</span><span class="yaml-punc">]</span></div>
+<div>&nbsp;&nbsp;<span class="yaml-punc">}</span></div>
+<div><span class="yaml-punc">}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Files 面板 ===== -->
+  <section id="panel-files" class="hidden">
+    <div class="elev-card overflow-hidden">
+      <div class="flex items-center gap-2 p-3 border-b border-border">
+        <i data-lucide="folder" class="w-3.5 h-3.5 text-fg-muted"></i>
+        <span class="text-sm font-mono text-fg-secondary">/var/lib/postgresql/data/</span>
+        <div class="ml-auto flex items-center gap-2">
+          <button class="btn h-7 px-2 text-xs"><i data-lucide="upload" class="w-3 h-3"></i>上传</button>
+          <button class="btn h-7 px-2 text-xs"><i data-lucide="folder-plus" class="w-3 h-3"></i>新建</button>
+        </div>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="text-[11px] uppercase tracking-wider text-fg-subtle border-b border-border">
+          <tr>
+            <th class="px-4 py-2 text-left font-medium">名称</th>
+            <th class="px-4 py-2 text-left font-medium w-24">权限</th>
+            <th class="px-4 py-2 text-left font-medium w-24">大小</th>
+            <th class="px-4 py-2 text-left font-medium w-32">修改</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="corner-up-left" class="w-3.5 h-3.5 inline mr-1.5 text-fg-subtle"></i>..</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">drwxr-xr-x</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">—</td><td class="px-4 py-2 text-fg-muted text-xs">—</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="folder" class="w-3.5 h-3.5 inline mr-1.5 text-brand"></i>base/</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">drwxrwxrwx</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">4.2 GB</td><td class="px-4 py-2 text-fg-muted text-xs">10-16 06:12</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="folder" class="w-3.5 h-3.5 inline mr-1.5 text-brand"></i>global/</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">drwxrwxrwx</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">12 GB</td><td class="px-4 py-2 text-fg-muted text-xs">10-16 06:12</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="folder" class="w-3.5 h-3.5 inline mr-1.5 text-brand"></i>pg_wal/</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">drwxrwxrwx</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">128 MB</td><td class="px-4 py-2 text-fg-muted text-xs">10-16 07:30</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="folder" class="w-3.5 h-3.5 inline mr-1.5 text-brand"></i>pg_stat/</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">drwxrwxrwx</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">4 KB</td><td class="px-4 py-2 text-fg-muted text-xs">10-16 06:12</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="file" class="w-3.5 h-3.5 inline mr-1.5 text-fg-muted"></i>PG_VERSION</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">-rw-rw-r--</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">88 B</td><td class="px-4 py-2 text-fg-muted text-xs">10-16 06:12</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="file" class="w-3.5 h-3.5 inline mr-1.5 text-fg-muted"></i>postgresql.conf</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">-rw-r--r--</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">8.5 KB</td><td class="px-4 py-2 text-fg-muted text-xs">10-01 02:18</td></tr>
+          <tr class="row-hover"><td class="px-4 py-2 font-mono text-sm"><i data-lucide="file" class="w-3.5 h-3.5 inline mr-1.5 text-fg-muted"></i>pg_hba.conf</td><td class="px-4 py-2 font-mono text-xs text-fg-subtle">-rw-r--r--</td><td class="px-4 py-2 font-mono text-xs text-fg-muted">3.2 KB</td><td class="px-4 py-2 text-fg-muted text-xs">10-12 14:02</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Env 面板 ===== -->
+  <section id="panel-env" class="hidden">
+    <div class="elev-card overflow-hidden">
+      <div class="flex items-center justify-between p-3 border-b border-border">
+        <h3 class="text-sm font-medium">环境变量 · 18 项</h3>
+        <button class="btn btn-primary h-7 px-2.5 text-xs"><i data-lucide="plus" class="w-3 h-3"></i>添加</button>
+      </div>
+      <table class="w-full text-sm">
+        <tbody>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary w-1/3">POSTGRES_USER</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">app_user</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">POSTGRES_DB</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">nextcloud</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">POSTGRES_PASSWORD</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">••••••••••••<span class="ml-2 text-fg-subtle cursor-pointer hover:text-fg-secondary">[show]</span></td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">PGDATA</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">/var/lib/postgresql/data/pgdata</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">PATH</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</td></tr>
+          <tr class="row-hover border-b border-border/60"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">LANG</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">en_US.utf8</td></tr>
+          <tr class="row-hover"><td class="px-4 py-2 font-mono text-xs text-fg-secondary">PG_MAJOR</td><td class="px-4 py-2 font-mono text-xs text-fg-primary">16</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 容器元信息侧栏 -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="elev-card p-5">
+      <h3 class="text-sm font-medium mb-3">网络</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-fg-muted">所属网络</span>
+          <span class="badge badge-info">backend</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-fg-muted">IP 地址</span>
+          <span class="font-mono text-xs text-fg-secondary">10.0.0.7/24</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-fg-muted">网关</span>
+          <span class="font-mono text-xs text-fg-secondary">10.0.0.1</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-fg-muted">MAC</span>
+          <span class="font-mono text-xs text-fg-secondary">02:42:0a:00:00:07</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="elev-card p-5">
+      <h3 class="text-sm font-medium mb-3">挂载</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-xs text-fg-secondary">/var/lib/postgresql/data</span>
+          <span class="badge badge-primary">postgres_data</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-xs text-fg-secondary">/etc/postgresql/conf.d</span>
+          <span class="badge">/docker/conf</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-xs text-fg-secondary">/docker-entrypoint-initdb.d</span>
+          <span class="badge">/docker/init</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="elev-card p-5">
+      <h3 class="text-sm font-medium mb-3">端口映射</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between font-mono text-xs">
+          <span class="text-fg-secondary">:5432</span>
+          <span class="text-fg-subtle">→</span>
+          <span class="text-fg-primary">:5432</span>
+          <span class="badge badge-primary ml-auto">tcp</span>
+        </div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-border">
+        <h4 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">资源限制</h4>
+        <div class="space-y-1.5 text-sm">
+          <div class="flex justify-between"><span class="text-fg-muted">CPU</span><span class="font-mono text-xs text-fg-secondary">2.0 cores</span></div>
+          <div class="flex justify-between"><span class="text-fg-muted">内存</span><span class="font-mono text-xs text-fg-secondary">2 GB</span></div>
+          <div class="flex justify-between"><span class="text-fg-muted">重启策略</span><span class="text-xs text-fg-secondary">unless-stopped</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+  lucide.createIcons();
+
+  // Tab 切换
+  const panels = { stats: document.getElementById('panel-stats'), logs: document.getElementById('panel-logs'), terminal: document.getElementById('panel-terminal'), inspect: document.getElementById('panel-inspect'), files: document.getElementById('panel-files'), env: document.getElementById('panel-env') };
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      Object.values(panels).forEach(p => p.classList.add('hidden'));
+      const id = t.dataset.tab;
+      if (panels[id]) panels[id].classList.remove('hidden');
+      lucide.createIcons();
+    });
+  });
+
+  // 4 个 mini chart
+  function mkChart(id, color, fill) {
+    const c = document.getElementById(id).getContext('2d');
+    const labels = Array.from({length:30},(_,i)=>`${30-i}s`);
+    const data = Array.from({length:30}, ()=> Math.random()*100);
+    const g = c.createLinearGradient(0,0,0,180);
+    g.addColorStop(0, fill+'55');
+    g.addColorStop(1, fill+'00');
+    return new Chart(c, {
+      type:'line',
+      data:{ labels, datasets:[{ data, borderColor:color, backgroundColor:g, borderWidth:2, tension:0.4, pointRadius:0, fill:true }]},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:{duration:300},
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#18181b', borderColor:'#27272a', borderWidth:1, padding:8, cornerRadius:6, bodyFont:{family:'JetBrains Mono', size:11} } },
+        scales:{ x:{ display:false }, y:{ display:false, beginAtZero:true } },
+      }
+    });
+  }
+  mkChart('cpuChart', '#3b82f6', '#3b82f6');
+  mkChart('memChart', '#22d3ee', '#22d3ee');
+  mkChart('netChart', '#10b981', '#10b981');
+  mkChart('blkChart', '#a78bfa', '#a78bfa');
+</script>
+
+
+<script>
+  // ---------- 移动端侧栏抽屉 ----------
+  function toggleSidebar() {
+    document.getElementById('sidebar')?.classList.toggle('open');
+    document.getElementById('sidebarBackdrop')?.classList.toggle('hidden');
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+    }
+  });
+</script>
+</body>
+</html>

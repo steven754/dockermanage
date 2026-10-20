@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>容器 · Dockermanage</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode:'class', theme:{ extend:{ colors:{
+      bg:{base:'#09090b',elev:'#0f0f12',card:'#18181b',cardHover:'#1f1f23',muted:'#27272a'},
+      fg:{primary:'#fafafa',secondary:'#d4d4d8',muted:'#a1a1aa',subtle:'#71717a'},
+      border:{DEFAULT:'#27272a',strong:'#3f3f46'},
+      brand:{DEFAULT:'#3b82f6',hover:'#2563eb',soft:'rgba(59,130,246,0.1)'},
+    }, fontFamily:{ sans:['Inter','system-ui'], mono:['JetBrains Mono','ui-monospace'] }}}}
+  </script>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body class="bg-bg-base text-fg-primary">
+
+<!-- 顶栏 -->
+<header class="topbar flex items-center px-4 gap-4">
+  <!-- 移动端侧栏开关 -->
+  <button onclick="toggleSidebar()" class="lg:hidden btn btn-ghost -ml-1 shrink-0" title="菜单" aria-label="打开菜单">
+    <i data-lucide="menu" class="w-4 h-4"></i>
+  </button>
+  <a href="index.html" class="flex items-center gap-2.5">
+    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-cyan-400 flex items-center justify-center">
+      <i data-lucide="container" class="text-white" style="width:18px;height:18px"></i>
+    </div>
+    <span class="font-semibold">Dockermanage</span>
+  </a>
+  <button class="ml-4 flex items-center gap-2 sm:flex-1 sm:max-w-xl px-3 py-1.5 rounded-md bg-bg-card border border-border text-fg-muted text-sm">
+    <i data-lucide="search" class="w-3.5 h-3.5 shrink-0"></i>
+    <span class="flex-1 min-w-0 truncate text-left hidden sm:block">搜索容器、镜像、卷、网络…</span>
+    <span class="kbd shrink-0">⌘</span><span class="kbd shrink-0">K</span>
+  </button>
+  <div class="ml-auto flex items-center gap-1">
+    <button class="btn btn-ghost"><i data-lucide="bell" class="w-4 h-4"></i></button>
+    <button class="btn btn-ghost"><i data-lucide="settings" class="w-4 h-4"></i></button>
+    <div class="w-px h-5 bg-border mx-1"></div>
+    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-[11px] font-semibold">S</div>
+  </div>
+</header>
+
+<!-- 移动端侧栏遮罩 -->
+<div id="sidebarBackdrop" class="hidden sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+<div class="flex">
+<!-- 侧栏 -->
+<aside id="sidebar" class="sidebar-fixed w-60 shrink-0 border-r border-border bg-bg-elev h-[calc(100vh-56px)] sticky top-14 p-3 flex flex-col gap-1">
+  <div class="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">概览</div>
+  <a href="index.html" class="nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i>Dashboard</a>
+  <a class="nav-item"><i data-lucide="activity" class="nav-icon"></i>事件流 <span class="ml-auto badge badge-info">12</span></a>
+  <div class="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">资源</div>
+  <a class="nav-item active"><i data-lucide="container" class="nav-icon"></i>容器 <span class="ml-auto text-xs text-fg-subtle">12</span></a>
+  <a class="nav-item"><i data-lucide="layers" class="nav-icon"></i>镜像 <span class="ml-auto text-xs text-fg-subtle">38</span></a>
+  <a class="nav-item"><i data-lucide="database" class="nav-icon"></i>卷 <span class="ml-auto text-xs text-fg-subtle">9</span></a>
+  <a class="nav-item"><i data-lucide="network" class="nav-icon"></i>网络 <span class="ml-auto text-xs text-fg-subtle">4</span></a>
+  <a href="compose.html" class="nav-item"><i data-lucide="file-code-2" class="nav-icon"></i>Compose</a>
+  <div class="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-fg-subtle">工具</div>
+  <a class="nav-item"><i data-lucide="folder-tree" class="nav-icon"></i>文件浏览器</a>
+  <a class="nav-item"><i data-lucide="refresh-ccw" class="nav-icon"></i>一键更新</a>
+  <a class="nav-item"><i data-lucide="bell-ring" class="nav-icon"></i>告警</a>
+  <a class="nav-item"><i data-lucide="layout-template" class="nav-icon"></i>应用模板</a>
+</aside>
+
+<!-- 主区 -->
+<main class="flex-1 min-w-0 p-6 lg:p-8 space-y-5">
+
+  <!-- 标题 + 顶部统计 -->
+  <div class="flex items-end justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">容器</h1>
+      <p class="text-sm text-fg-muted mt-1">共 12 个 · <span class="text-emerald-400">9 运行</span> · <span class="text-fg-muted">2 停止</span> · <span class="text-red-400">1 异常</span></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="btn"><i data-lucide="download" class="w-3.5 h-3.5"></i>Pull 镜像</button>
+      <button class="btn"><i data-lucide="file-code-2" class="w-3.5 h-3.5"></i>从 Compose 部署</button>
+      <button class="btn btn-primary"><i data-lucide="plus" class="w-3.5 h-3.5"></i>新建容器</button>
+    </div>
+  </div>
+
+  <!-- 迷你统计 -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="elev-card p-4 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-md bg-emerald-500/15 flex items-center justify-center">
+        <i data-lucide="play-circle" class="w-4.5 text-emerald-400" style="width:18px;height:18px"></i>
+      </div>
+      <div>
+        <div class="text-[11px] text-fg-subtle">运行中</div>
+        <div class="text-xl font-semibold font-mono">9</div>
+      </div>
+    </div>
+    <div class="elev-card p-4 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-md bg-slate-500/15 flex items-center justify-center">
+        <i data-lucide="stop-circle" class="w-4.5 text-slate-400" style="width:18px;height:18px"></i>
+      </div>
+      <div>
+        <div class="text-[11px] text-fg-subtle">已停止</div>
+        <div class="text-xl font-semibold font-mono">2</div>
+      </div>
+    </div>
+    <div class="elev-card p-4 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-md bg-red-500/15 flex items-center justify-center">
+        <i data-lucide="alert-octagon" class="w-4.5 text-red-400" style="width:18px;height:18px"></i>
+      </div>
+      <div>
+        <div class="text-[11px] text-fg-subtle">异常</div>
+        <div class="text-xl font-semibold font-mono">1</div>
+      </div>
+    </div>
+    <div class="elev-card p-4 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-md bg-brand-soft flex items-center justify-center">
+        <i data-lucide="layers" class="w-4.5 text-brand" style="width:18px;height:18px"></i>
+      </div>
+      <div>
+        <div class="text-[11px] text-fg-subtle">总 CPU/MEM</div>
+        <div class="text-base font-semibold font-mono">23.4% <span class="text-fg-subtle">/</span> 41.8%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 筛选条 -->
+  <section class="elev-card overflow-hidden">
+    <div class="p-3 border-b border-border flex items-center gap-2 flex-wrap">
+      <div class="relative flex-1 min-w-[200px] max-w-sm">
+        <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle"></i>
+        <input class="input pl-8 h-8 text-sm" placeholder="按名称、镜像、标签过滤…" />
+      </div>
+
+      <button class="btn h-8 px-2.5 text-xs">全部 <span class="text-fg-subtle font-mono">12</span></button>
+      <button class="btn h-8 px-2.5 text-xs bg-brand-soft border-brand text-brand">运行 <span class="font-mono opacity-70">9</span></button>
+      <button class="btn h-8 px-2.5 text-xs">停止 <span class="text-fg-subtle font-mono">2</span></button>
+      <button class="btn h-8 px-2.5 text-xs">异常 <span class="text-red-400 font-mono">1</span></button>
+
+      <div class="w-px h-5 bg-border mx-1"></div>
+
+      <button class="btn h-8 px-2.5 text-xs"><i data-lucide="filter" class="w-3.5 h-3.5"></i>网络</button>
+      <button class="btn h-8 px-2.5 text-xs"><i data-lucide="filter" class="w-3.5 h-3.5"></i>卷</button>
+      <button class="btn h-8 px-2.5 text-xs"><i data-lucide="tag" class="w-3.5 h-3.5"></i>标签</button>
+
+      <div class="ml-auto flex items-center gap-2">
+        <span class="text-xs text-fg-subtle">视图</span>
+        <div class="flex bg-bg-base border border-border rounded-md p-0.5">
+          <button class="px-2 py-1 text-xs rounded bg-bg-card text-fg-primary"><i data-lucide="list" class="w-3.5 h-3.5"></i></button>
+          <button class="px-2 py-1 text-xs rounded text-fg-muted"><i data-lucide="layout-grid" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 批量操作栏（选中后展示） -->
+    <div class="px-4 py-2 bg-brand-soft border-b border-brand/40 flex items-center gap-3 text-sm">
+      <span class="text-brand font-medium">已选 2 项</span>
+      <div class="w-px h-4 bg-border"></div>
+      <button class="text-fg-secondary hover:text-fg-primary flex items-center gap-1"><i data-lucide="play" class="w-3.5 h-3.5"></i>启动</button>
+      <button class="text-fg-secondary hover:text-fg-primary flex items-center gap-1"><i data-lucide="square" class="w-3.5 h-3.5"></i>停止</button>
+      <button class="text-fg-secondary hover:text-fg-primary flex items-center gap-1"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>重启</button>
+      <button class="text-fg-secondary hover:text-fg-primary flex items-center gap-1"><i data-lucide="refresh-ccw" class="w-3.5 h-3.5"></i>重建</button>
+      <button class="text-fg-secondary hover:text-fg-primary flex items-center gap-1"><i data-lucide="git-pull-request" class="w-3.5 h-3.5"></i>更新镜像</button>
+      <button class="text-red-400 hover:text-red-300 flex items-center gap-1 ml-auto"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i>删除</button>
+      <button class="text-fg-subtle hover:text-fg-secondary text-xs">取消</button>
+    </div>
+
+    <!-- 列表 -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-[11px] uppercase tracking-wider text-fg-subtle">
+          <tr class="border-b border-border">
+            <th class="px-4 py-2.5 w-8"><input type="checkbox" class="accent-brand" /></th>
+            <th class="px-4 py-2.5 text-left font-medium">名称</th>
+            <th class="px-4 py-2.5 text-left font-medium">状态</th>
+            <th class="px-4 py-2.5 text-left font-medium">镜像</th>
+            <th class="px-4 py-2.5 text-left font-medium">端口</th>
+            <th class="px-4 py-2.5 text-left font-medium">网络</th>
+            <th class="px-4 py-2.5 text-left font-medium w-40">CPU / MEM</th>
+            <th class="px-4 py-2.5 text-left font-medium">创建</th>
+            <th class="px-4 py-2.5 w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Row 1 -->
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-emerald-500/15 flex items-center justify-center">
+                  <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
+                </div>
+                <span class="font-medium">nginx-proxy</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">nginx:1.27-alpine</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:80</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:80</span></td>
+            <td class="px-4 py-3"><span class="badge badge-info">proxy</span> <span class="badge">bridge</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:1.2%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">1.2%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">38 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">23 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" checked /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-blue-500/15 flex items-center justify-center">
+                  <i data-lucide="database" class="w-3.5 h-3.5 text-blue-400"></i>
+                </div>
+                <span class="font-medium">postgres-main</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">postgres:16</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:5432</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:5432</span></td>
+            <td class="px-4 py-3"><span class="badge">backend</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:3.8%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">3.8%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">412 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">45 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60 bg-red-500/[0.04]">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-red-500/15 flex items-center justify-center">
+                  <i data-lucide="database" class="w-3.5 h-3.5 text-red-400"></i>
+                </div>
+                <span class="font-medium">redis-cache</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-error"><span class="dot-error"></span>exited</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">redis:7-alpine</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:6379</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:6379</span></td>
+            <td class="px-4 py-3"><span class="badge">backend</span></td>
+            <td class="px-4 py-3 text-fg-subtle font-mono text-xs">OOM · code 137</td>
+            <td class="px-4 py-3 text-fg-muted text-xs">12 秒前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-purple-500/15 flex items-center justify-center">
+                  <i data-lucide="download-cloud" class="w-3.5 h-3.5 text-purple-400"></i>
+                </div>
+                <span class="font-medium">qbittorrent</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">linuxserver/qbittorrent:latest</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:8080</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:8080</span></td>
+            <td class="px-4 py-3"><span class="badge">bridge</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:5.1%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">5.1%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">186 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">12 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" checked /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-pink-500/15 flex items-center justify-center">
+                  <i data-lucide="film" class="w-3.5 h-3.5 text-pink-400"></i>
+                </div>
+                <span class="font-medium">jellyfin</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">linuxserver/jellyfin:latest</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:8096</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:8096</span></td>
+            <td class="px-4 py-3"><span class="badge">frontend</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:7.4%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">7.4%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">1.2 GB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">67 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-cyan-500/15 flex items-center justify-center">
+                  <i data-lucide="cloud" class="w-3.5 h-3.5 text-cyan-400"></i>
+                </div>
+                <span class="font-medium">nextcloud</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">nextcloud:29-apache</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:8081</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:8080</span></td>
+            <td class="px-4 py-3"><span class="badge badge-info">proxy</span> <span class="badge">backend</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:2.1%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">2.1%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">512 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">34 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-orange-500/15 flex items-center justify-center">
+                  <i data-lucide="home" class="w-3.5 h-3.5 text-orange-400"></i>
+                </div>
+                <span class="font-medium">homeassistant</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">homeassistant/home-assistant:stable</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:8123</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:8123</span></td>
+            <td class="px-4 py-3"><span class="badge">bridge</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:4.3%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">4.3%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">624 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">89 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-indigo-500/15 flex items-center justify-center">
+                  <i data-lucide="shield" class="w-3.5 h-3.5 text-indigo-400"></i>
+                </div>
+                <span class="font-medium">adguard-home</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">adguard/adguardhome:latest</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:3000</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:3000</span></td>
+            <td class="px-4 py-3"><span class="badge badge-info">proxy</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:0.8%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">0.8%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">96 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">102 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-slate-500/15 flex items-center justify-center">
+                  <i data-lucide="download" class="w-3.5 h-3.5 text-slate-400"></i>
+                </div>
+                <span class="font-medium">transmission</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-stopped"><span class="dot-stopped"></span>stopped</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">transmission:4.0</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:9091</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:9091</span></td>
+            <td class="px-4 py-3"><span class="badge">bridge</span></td>
+            <td class="px-4 py-3 text-fg-subtle font-mono text-xs">—</td>
+            <td class="px-4 py-3 text-fg-muted text-xs">52 分钟前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-yellow-500/15 flex items-center justify-center">
+                  <i data-lucide="wrench" class="w-3.5 h-3.5 text-yellow-400"></i>
+                </div>
+                <span class="font-medium">portainer-agent</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-paused"><span class="dot-paused"></span>paused</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">portainer/agent:2.21</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:9001</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:9001</span></td>
+            <td class="px-4 py-3"><span class="badge">bridge</span></td>
+            <td class="px-4 py-3 text-fg-subtle font-mono text-xs">paused</td>
+            <td class="px-4 py-3 text-fg-muted text-xs">12 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover border-b border-border/60">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-rose-500/15 flex items-center justify-center">
+                  <i data-lucide="message-circle" class="w-3.5 h-3.5 text-rose-400"></i>
+                </div>
+                <span class="font-medium">vaultwarden</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">vaultwarden/server:1.32</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:8082</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:80</span></td>
+            <td class="px-4 py-3"><span class="badge badge-info">proxy</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:0.4%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">0.4%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">52 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">8 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+
+          <tr class="row-hover">
+            <td class="px-4 py-3"><input type="checkbox" class="accent-brand" /></td>
+            <td class="px-4 py-3">
+              <a href="container-detail.html" class="flex items-center gap-2.5 hover:text-brand">
+                <div class="w-7 h-7 rounded-md bg-teal-500/15 flex items-center justify-center">
+                  <i data-lucide="git-fork" class="w-3.5 h-3.5 text-teal-400"></i>
+                </div>
+                <span class="font-medium">gitea</span>
+              </a>
+            </td>
+            <td class="px-4 py-3"><span class="badge badge-running"><span class="dot-running"></span>running</span></td>
+            <td class="px-4 py-3 text-fg-secondary font-mono text-xs">gitea/gitea:1.22</td>
+            <td class="px-4 py-3 font-mono text-xs"><span class="text-fg-secondary">:3000</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:3000</span> <span class="text-fg-subtle">·</span> <span class="text-fg-secondary">:2222</span> <span class="text-fg-subtle">→</span> <span class="text-fg-primary">:22</span></td>
+            <td class="px-4 py-3"><span class="badge badge-info">proxy</span></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="meter w-20"><span style="width:1.6%"></span></div>
+                <span class="font-mono text-[11px] text-fg-secondary">1.6%</span>
+              </div>
+              <div class="text-[11px] text-fg-subtle font-mono mt-0.5">214 MB</div>
+            </td>
+            <td class="px-4 py-3 text-fg-muted text-xs">14 天前</td>
+            <td class="px-4 py-3">
+              <button class="btn btn-ghost h-7 w-7 p-0"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分页 -->
+    <div class="p-3 border-t border-border flex items-center justify-between text-xs">
+      <span class="text-fg-subtle">显示 1–12 · 共 12 条</span>
+      <div class="flex items-center gap-1">
+        <button class="btn btn-ghost h-7 w-7 p-0 opacity-50" disabled><i data-lucide="chevron-left" class="w-3.5 h-3.5"></i></button>
+        <button class="btn h-7 w-7 p-0 bg-brand-soft border-brand text-brand">1</button>
+        <button class="btn btn-ghost h-7 w-7 p-0" disabled><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+  lucide.createIcons();
+</script>
+
+
+<script>
+  // ---------- 移动端侧栏抽屉 ----------
+  function toggleSidebar() {
+    document.getElementById('sidebar')?.classList.toggle('open');
+    document.getElementById('sidebarBackdrop')?.classList.toggle('hidden');
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+    }
+  });
+</script>
+</body>
+</html>
