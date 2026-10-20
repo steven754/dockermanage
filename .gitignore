@@ -38,3 +38,6 @@ tmp/
 .idea/
 .vscode/
 *.swp
+
+# Mavis 运行时产物（安全扫描批次、索引库、记忆库等）
+.minimax/
