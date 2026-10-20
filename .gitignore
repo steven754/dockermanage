@@ -9,8 +9,9 @@ node_modules/
 vendor/
 
 # 构建产物
-dist/
-build/
+# 注意：必须用根锚定的路径。通用的 dist/ 会连 backend/internal/server/web/dist/
+# 一起排除，而那个目录是 go:embed 的必需输入，缺失会导致 CI 编译失败。
+/frontend/dist/
 /backend/bin/
 *.exe
 *.dylib
