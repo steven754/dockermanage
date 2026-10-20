@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  panel:
+    image: ghcr.io/steven754/dockermanage:latest
+    container_name: dockermanage
+    restart: unless-stopped
+
+    # exec 容器终端 / inspect 进程所需（个人自用场景的合理妥协，
+    # 企业部署请改用 Docker Socket Proxy，见 SPEC §8.1）
+    privileged: true
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # Docker daemon socket —— 后端通过它管理容器
+      - /var/run/docker.sock:/var/run/docker.sock
+      # SQLite 数据库 + 设置 + 初始密码 + JWT 密钥
+      - ./data:/data
+      # Compose 项目目录（每个子目录 = 一个项目）
+      - ./compose:/compose
+
+    environment:
+      PANEL_PORT: "8080"
+      PANEL_DATA: "/data"
+      PANEL_COMPOSE_DIR: "/compose"
+      PANEL_LOG_LEVEL: "info"
+      TZ: "${TZ:-Asia/Shanghai}"
+
+    # 镜像健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # macOS Docker Desktop 路径权限：让容器内 panel 用户能写 /data
+    # （Linux 部署可删除这段）
+    # user: "1000:1000"

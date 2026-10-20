@@ -60,4 +60,4 @@ docker compose up -d
 
 ## License
 
-未指定。
+[MIT](./LICENSE) © 2026 steven754

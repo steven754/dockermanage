@@ -122,8 +122,8 @@
 | **HTTP 框架** | chi v5 | 轻量、middleware 链清晰、对比 gin 更接近 net/http 风格 |
 | **WebSocket** | nhooyr.io/websocket 或 coder/websocket | 比 gorilla 更现代 |
 | **SSE** | 标准库即可 | Dashboard 实时图表用 SSE 足够，复杂度低于 WS |
-| **数据库** | SQLite + WAL | 单文件、零运维、性能足够；WAL 模式提升并发 |
-| **ORM** | sqlx + 手工 SQL | 简单查询可控，避免 GORM 反射开销 |
+| **数据库** | SQLite + WAL（`modernc.org/sqlite` **纯 Go 驱动**） | 单文件、零运维；纯 Go 驱动 → `CGO_ENABLED=0` 静态编译，arm64 交叉编译零成本 |
+| **ORM** | 无 ORM，手写 SQL（`database/sql`） | 简单查询可控，避免反射开销与依赖膨胀 |
 | **前端框架** | React 18 + TypeScript | 生态成熟、shadcn/ui 基于此 |
 | **构建** | Vite 5 | 启动快、HMR 好 |
 | **样式** | Tailwind CSS 3 + shadcn/ui | 高度可定制、符合"高 UI 要求" |
@@ -142,14 +142,20 @@
 **决策 D2：单进程单镜像部署**
 - 理由：个人场景，避免 docker-compose 多服务编排的运维负担；前端静态资源由 Go embed 包打包进二进制
 
-**决策 D3：SQLite 而非 Postgres**
+**决策 D3：SQLite 而非 Postgres，且用纯 Go 驱动**
 - 理由：单文件随 docker volume 持久化，零运维；WAL 模式下并发读性能足够；如未来需要切换，repository 层抽象已隔离
+- 补充（2026-10-20 实现期确认）：驱动选 `modernc.org/sqlite` 而非 `mattn/go-sqlite3`，去掉 CGO 依赖 → `CGO_ENABLED=0` 静态编译 → 镜像更小、arm64 交叉编译零成本、alpine 基础镜像无需装 build-base
 
 **决策 D4：容器内部署时使用 `--pid host` 但不挂载 docker.sock**
 - 理由：见 §8.1 安全考虑 — 优先使用 Docker Proxy 而非 socket 挂载（v1.0 暂用 socket，v1.1 引入 Proxy）
 
 **决策 D5：WebSocket 用于终端/日志流，SSE 用于 stats/events 广播**
 - 理由：终端/日志需要双向（resize、键盘输入），用 WS；stats/events 只需服务端→客户端，SSE 更简单且自动重连
+
+**决策 D6（2026-10-20 实现期确认）：Compose 操作调用 `docker compose` CLI**
+- 理由：Docker Compose v2 的项目/网络/卷生命周期语义复杂，自己用 SDK 重新实现易出偏差；直接调用官方 CLI 行为最一致
+- 代价：运行时镜像需额外装 `docker-cli` + `docker-cli-compose`（alpine 包），镜像增大约 20MB
+- 备选方案：compose-go 库（纯 Go，无需 CLI）—— 依赖体积大、v2 schema 演进频繁，暂不采用
 
 ---
 
@@ -234,6 +240,10 @@ backend/
 ---
 
 ## 6. API 设计
+
+> 📄 **请求体 / 响应体的确切 JSON 形状见 [`docs/api-contract.md`](./docs/api-contract.md)**。
+> 本节定义端点清单与语义，契约文档定义数据形状 —— 两者冲突时以契约文档为准。
+> SSE 与 WebSocket 的帧格式同样在契约文档中定义。
 
 ### 6.1 REST 端点
 
@@ -514,42 +524,58 @@ CREATE TABLE templates (
 ### 11.1 项目结构
 ```
 dockermanage/                    # 本仓库
-├── SPEC.md                      # 本文档
+├── SPEC.md                      # 本文档（规格权威源）
+├── docs/api-contract.md         # API 契约（请求体/响应体 JSON 形状权威源）
 ├── README.md                    # 用户使用文档
+├── LICENSE                      # MIT
+├── Makefile                     # 常用命令入口
 ├── docker-compose.yml           # 部署入口
 ├── Dockerfile                   # 多阶段构建
-├── backend/                     # Go 后端
+├── .dockerignore
+├── .github/workflows/ci.yml     # CI：后端 / 前端 / 双架构镜像
+├── backend/                     # Go 后端（module: github.com/steven754/dockermanage/backend）
 ├── frontend/                    # React 前端
-├── ui-mocks/                    # UI 设计稿（仅开发期）
+├── ui-mocks/                    # UI 设计稿（仅开发期，不进镜像）
+├── data/                        # 运行时：SQLite + 设置 + 初始密码（gitignore）
+└── compose/                     # 运行时：Compose 项目目录（gitignore）
 ```
 
 ### 11.2 Dockerfile（多阶段）
 ```dockerfile
 # Stage 1: Frontend build
-FROM node:20-alpine AS frontend
+FROM node:22-alpine AS frontend
 WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm ci
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci || npm install
 COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Backend build
-FROM golang:1.22-alpine AS backend
+FROM golang:1.24-alpine AS backend
+ARG VERSION=dev COMMIT=unknown BUILD_TIME=unknown
 WORKDIR /app
-COPY backend/go.* ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-COPY --from=frontend /app/dist /app/web
-RUN CGO_ENABLED=1 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o /out/panel ./cmd/panel
+COPY --from=frontend /app/dist ./internal/server/web/dist
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
+      -ldflags="-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}" \
+      -o /out/panel ./cmd/panel
 
 # Stage 3: Runtime
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata docker-cli docker-cli-compose curl
 COPY --from=backend /out/panel /usr/local/bin/panel
+ENV PANEL_PORT=8080 PANEL_DATA=/data PANEL_COMPOSE_DIR=/compose TZ=Asia/Shanghai
 VOLUME ["/data", "/compose"]
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${PANEL_PORT}/healthz" || exit 1
 ENTRYPOINT ["/usr/local/bin/panel"]
 ```
+
+> `docker-cli` + `docker-cli-compose` 是决策 D6 的代价：Compose 项目操作走官方 CLI。
+> 前端产物注入 `backend/internal/server/web/dist`，由 Go `embed` 打进二进制 —— 单镜像零外部依赖。
 
 **多架构构建（决策 D-A8：amd64 + arm64 双架构）**
 
@@ -557,14 +583,14 @@ ENTRYPOINT ["/usr/local/bin/panel"]
 docker buildx create --use --name dockermanage-builder
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/<user>/dockermanage:latest \
-  -t ghcr.io/<user>/dockermanage:v1.0.0 \
+  -t ghcr.io/steven754/dockermanage:latest \
+  -t ghcr.io/steven754/dockermanage:v1.0.0 \
   --push .
 ```
 
 - Go 静态编译无 CGO 依赖，交叉编译零成本；alpine base 天然支持两架构
-- CI 用 matrix（`linux/amd64` + `linux/arm64`）跑 buildx，产出 manifest list
-- 镜像体积目标 < 50MB（前端 dist 约 1.5MB + Go 二进制约 20MB + alpine 基础层）
+- CI 用 `docker/build-push-action` 直接出 manifest list
+- 镜像体积目标 < 80MB（前端 dist 约 1.5MB + Go 二进制约 25MB + alpine + docker-cli 约 45MB）
 
 ### 11.3 docker-compose.yml
 ```yaml

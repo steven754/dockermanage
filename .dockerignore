@@ -1,0 +1,41 @@
+# 依赖
+node_modules/
+vendor/
+
+# 构建产物
+dist/
+build/
+*.exe
+*.dylib
+*.so
+
+# 版本控制
+.git/
+.gitignore
+.github/
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 日志与临时文件
+*.log
+tmp/
+.cache/
+coverage/
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# 文档与设计稿（不参与运行时镜像）
+docs/
+ui-mocks/
+*.md
+!README.md
