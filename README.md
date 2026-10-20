@@ -74,6 +74,14 @@ docker compose logs panel | grep '初始'
 
 初始密码同时写入 `data/.password`（权限 0600），改密后自动删除。
 
+其他可调环境变量：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `PANEL_INITIAL_PASSWORD` | `admin` | 首启初始密码，`random` 表示生成 16 位随机密码 |
+| `PANEL_TRUST_PROXY` | `false` | 是否采信 `X-Forwarded-For`；**仅在面板确实部署在反向代理之后时开启**，否则登录限流可被伪造头绕过 |
+| `PANEL_LOGIN_RATE_LIMIT` | `10` | 每分钟允许的登录尝试次数。容器化部署时所有请求来源地址相同，该阈值实际是全局的 |
+
 > ⚠️ **首次启动后请立刻改密码。** 面板默认只监听 HTTP，**公网暴露请务必挂在反向代理后面并启用 TLS**。
 > 面板以特权模式运行并挂载了 docker.sock，等同于宿主机 root 权限，不要直接暴露到公网。
 

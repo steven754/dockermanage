@@ -38,6 +38,7 @@ WS  /api/v1/containers/:id/exec?access_token=<JWT>
 
 | HTTP | code | 场景 |
 |---|---|---|
+| 403 | `MUST_CHANGE_PASSWORD` | 初始密码尚未修改，除 `/api/v1/auth/me`、`/api/v1/auth/password`、`/api/v1/auth/logout` 外一律拒绝 |
 | 400 | `VALIDATION_ERROR` | 参数不合法 |
 | 401 | `UNAUTHORIZED` | 未登录 / token 过期 |
 | 403 | `FORBIDDEN` | 无权限 |

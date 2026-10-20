@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,16 +19,41 @@ import (
 )
 
 // acceptWebSocket 完成 WebSocket 握手
+//
+// 跨站 WebSocket 劫持防护：校验 Origin 头的 host 是否与请求的 Host 一致。
+// 浏览器发起 WebSocket 会自动带上 Origin，跨站页面无法伪造该头，
+// 因此同源校验可以挡住「恶意页面诱导浏览器连上本面板」的经典攻击。
+// 非浏览器客户端（无 Origin 头）按需放行。
 func acceptWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
+	if err := checkWebSocketOrigin(r); err != nil {
+		return nil, err
+	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		// 面板为个人自用场景，Origin 校验交由鉴权与反向代理承担
-		InsecureSkipVerify: true,
+		// Origin 已由 checkWebSocketOrigin 自行校验，此处不再跳过
+		InsecureSkipVerify: false,
 	})
 	if err != nil {
 		return nil, err
 	}
 	conn.SetReadLimit(1 << 20)
 	return conn, nil
+}
+
+// checkWebSocketOrigin 校验 WebSocket 握手的 Origin
+func checkWebSocketOrigin(r *http.Request) error {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		// 非浏览器客户端不发送 Origin，放行
+		return nil
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return fmt.Errorf("Origin 解析失败: %w", err)
+	}
+	if u.Host == "" || !strings.EqualFold(u.Host, r.Host) {
+		return fmt.Errorf("跨域握手被拒绝：Origin=%s 与请求主机 %s 不一致", u.Host, r.Host)
+	}
+	return nil
 }
 
 // ContainerLogs 处理 WS /api/v1/containers/:id/logs

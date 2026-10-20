@@ -54,7 +54,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	})
 
 	return &testEnv{
-		router:   server.NewRouter(server.Deps{Handler: h, Tokens: tokens}),
+		router:   server.NewRouter(server.Deps{Handler: h, Tokens: tokens, Users: store.Users}),
 		password: password,
 		username: auth.DefaultUsername,
 	}
@@ -233,13 +233,18 @@ func TestChangePasswordFlow(t *testing.T) {
 		t.Fatalf("期望改密返回 200，实际 %d，响应 %s", rec.Code, rec.Body.String())
 	}
 	var okResp struct {
-		OK bool `json:"ok"`
+		AccessToken        string `json:"accessToken"`
+		RefreshToken       string `json:"refreshToken"`
+		MustChangePassword bool   `json:"mustChangePassword"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &okResp); err != nil {
 		t.Fatalf("解析改密响应失败: %v", err)
 	}
-	if !okResp.OK {
-		t.Fatal("改密响应 ok 应为 true")
+	if okResp.AccessToken == "" || okResp.RefreshToken == "" {
+		t.Fatal("改密响应应返回新的令牌对")
+	}
+	if okResp.MustChangePassword {
+		t.Fatal("改密后 mustChangePassword 应为 false")
 	}
 }
 
@@ -320,5 +325,107 @@ func TestWildcardRouteCapturesSlashes(t *testing.T) {
 
 	if got != "dmtest/hello:v1" {
 		t.Fatalf("通配路由未捕获完整引用，实际 %q", got)
+	}
+}
+
+// TestForcedPasswordChangeEnforcedServerSide 验证强制改密由后端强制执行。
+//
+// 回归背景：此前「初始密码必须修改」只由前端跳转实现，后端鉴权中间件从不校验，
+// 因此拿到初始口令的用户无需改密即可直接调用 exec / compose up 等高危接口。
+func TestForcedPasswordChangeEnforcedServerSide(t *testing.T) {
+	env := newTestEnv(t)
+
+	rec := env.doRequest(t, http.MethodPost, "/api/v1/auth/login", "", map[string]string{
+		"username": env.username,
+		"password": env.password,
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("登录失败: %d", rec.Code)
+	}
+	var login struct {
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &login); err != nil {
+		t.Fatalf("解析登录响应失败: %v", err)
+	}
+
+	// 改密前：业务接口必须被后端拒绝（403 MUST_CHANGE_PASSWORD）
+	rec = env.doRequest(t, http.MethodGet, "/api/v1/containers", login.AccessToken, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("期望改密前访问业务接口返回 403，实际 %d，响应 %s", rec.Code, rec.Body.String())
+	}
+	var forbidden struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &forbidden); err != nil {
+		t.Fatalf("解析错误响应失败: %v", err)
+	}
+	if forbidden.Error.Code != "MUST_CHANGE_PASSWORD" {
+		t.Fatalf("期望错误码 MUST_CHANGE_PASSWORD，实际 %s", forbidden.Error.Code)
+	}
+
+	// 改密前：改密相关接口仍应放行
+	rec = env.doRequest(t, http.MethodGet, "/api/v1/auth/me", login.AccessToken, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("期望改密前 /auth/me 返回 200，实际 %d", rec.Code)
+	}
+
+	// 改密：响应应带新令牌
+	rec = env.doRequest(t, http.MethodPost, "/api/v1/auth/password", login.AccessToken, map[string]string{
+		"oldPassword": env.password,
+		"newPassword": "NewPassw0rd!2026",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("期望改密返回 200，实际 %d，响应 %s", rec.Code, rec.Body.String())
+	}
+	var changed struct {
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &changed); err != nil {
+		t.Fatalf("解析改密响应失败: %v", err)
+	}
+	if changed.AccessToken == "" {
+		t.Fatal("改密后应返回新令牌")
+	}
+
+	// 改密后：旧令牌立即失效（令牌版本自增）
+	rec = env.doRequest(t, http.MethodGet, "/api/v1/containers", login.AccessToken, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("期望改密后旧令牌返回 401，实际 %d，响应 %s", rec.Code, rec.Body.String())
+	}
+
+	// 改密后：新令牌应通过鉴权中间件。
+	// 本测试环境未接 Docker 服务，业务接口会因上游不可达而返回 5xx，
+	// 因此这里断言的是「不再被鉴权中间件拒绝」（非 401 / 非 403）。
+	rec = env.doRequest(t, http.MethodGet, "/api/v1/containers", changed.AccessToken, nil)
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("改密后新令牌应通过鉴权中间件，实际 %d，响应 %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestAccessTokenQueryParamOnlyForStreaming 验证查询参数携带令牌仅对流式端点生效。
+//
+// 回归背景：此前所有路由都接受 ?access_token=，令牌会落入反向代理访问日志
+// 与浏览器历史记录，契约约定该例外只适用于 SSE / WebSocket。
+func TestAccessTokenQueryParamOnlyForStreaming(t *testing.T) {
+	env := newTestEnv(t)
+
+	rec := env.doRequest(t, http.MethodPost, "/api/v1/auth/login", "", map[string]string{
+		"username": env.username,
+		"password": env.password,
+	})
+	var login struct {
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &login); err != nil {
+		t.Fatalf("解析登录响应失败: %v", err)
+	}
+
+	// 非流式接口用查询参数携带令牌 → 应被拒绝
+	rec = env.doRequest(t, http.MethodGet, "/api/v1/containers?access_token="+login.AccessToken, "", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("期望非流式接口用查询参数令牌返回 401，实际 %d，响应 %s", rec.Code, rec.Body.String())
 	}
 }

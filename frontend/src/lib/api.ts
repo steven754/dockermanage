@@ -106,6 +106,21 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler
 }
 
+/* -------------------------------------------------- 403 强制改密统一处理 */
+
+type MustChangePasswordHandler = () => void
+let mustChangePasswordHandler: MustChangePasswordHandler | null = null
+
+/**
+ * 注册「初始密码未修改」回调。
+ *
+ * 后端在初始密码未修改时会以 403 + MUST_CHANGE_PASSWORD 拒绝除改密类接口外的
+ * 全部请求，这里统一转成前端状态，强制用户回到改密流程。
+ */
+export function setMustChangePasswordHandler(handler: MustChangePasswordHandler | null): void {
+  mustChangePasswordHandler = handler
+}
+
 /* ---------------------------------------------------------------- 工具 */
 
 export type QueryValue = string | number | boolean | undefined | null
@@ -214,6 +229,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     if (response.status === 401 && !skipAuthRedirect) {
       unauthorizedHandler?.()
     }
+    if (response.status === 403 && code === 'MUST_CHANGE_PASSWORD') {
+      mustChangePasswordHandler?.()
+    }
     throw new ApiError(response.status, code, message)
   }
 
@@ -244,8 +262,9 @@ export const authApi = {
       skipAuthRedirect: true,
     }),
   logout: () => request<OkResponse>('/api/v1/auth/logout', { method: 'POST', body: {} }),
+  /** 改密；响应带新的令牌对（改密前签发的令牌已失效） */
   changePassword: (oldPassword: string, newPassword: string) =>
-    request<OkResponse>('/api/v1/auth/password', {
+    request<LoginResponse>('/api/v1/auth/password', {
       method: 'POST',
       body: { oldPassword, newPassword },
     }),

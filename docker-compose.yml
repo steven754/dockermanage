@@ -27,6 +27,12 @@ services:
       # 首启初始密码，默认 admin。改成 "random" 则生成 16 位随机密码；
       # 改成具体字符串则用该值。首次登录后系统会强制改密。
       PANEL_INITIAL_PASSWORD: "${PANEL_INITIAL_PASSWORD:-admin}"
+      # 是否采信 X-Forwarded-For / X-Real-IP。仅在面板确实部署在反向代理
+      # 之后时才设为 true；直连时保持 false，否则登录限流可被伪造头绕过。
+      PANEL_TRUST_PROXY: "${PANEL_TRUST_PROXY:-false}"
+      # 每分钟允许的登录尝试次数。注意容器化部署时该阈值是全局的
+      # （所有请求来源地址相同），偶尔输错密码可以调大一些。
+      PANEL_LOGIN_RATE_LIMIT: "${PANEL_LOGIN_RATE_LIMIT:-10}"
       TZ: "${TZ:-Asia/Shanghai}"
 
     # 镜像健康检查

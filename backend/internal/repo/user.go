@@ -15,8 +15,10 @@ type User struct {
 	Username           string
 	PasswordHash       string
 	MustChangePassword bool
-	CreatedAt          int64
-	LastLoginAt        sql.NullInt64
+	// TokenVersion 令牌版本，改密后自增；与 JWT 中的版本不一致的令牌视为已失效
+	TokenVersion int
+	CreatedAt    int64
+	LastLoginAt  sql.NullInt64
 }
 
 // UserRepo 用户仓储
@@ -58,19 +60,19 @@ func (r *UserRepo) Create(username, passwordHash string, mustChange bool) (*User
 
 // GetByUsername 按用户名查询
 func (r *UserRepo) GetByUsername(username string) (*User, error) {
-	return r.getOne("SELECT id, username, password_hash, must_change_password, created_at, last_login_at FROM users WHERE username = ?", username)
+	return r.getOne("SELECT id, username, password_hash, must_change_password, token_version, created_at, last_login_at FROM users WHERE username = ?", username)
 }
 
 // GetByID 按 ID 查询
 func (r *UserRepo) GetByID(id int64) (*User, error) {
-	return r.getOne("SELECT id, username, password_hash, must_change_password, created_at, last_login_at FROM users WHERE id = ?", id)
+	return r.getOne("SELECT id, username, password_hash, must_change_password, token_version, created_at, last_login_at FROM users WHERE id = ?", id)
 }
 
 func (r *UserRepo) getOne(query string, args ...any) (*User, error) {
 	u := &User{}
 	var lastLogin sql.NullInt64
 	err := r.db.QueryRow(query, args...).Scan(
-		&u.ID, &u.Username, &u.PasswordHash, &u.MustChangePassword, &u.CreatedAt, &lastLogin,
+		&u.ID, &u.Username, &u.PasswordHash, &u.MustChangePassword, &u.TokenVersion, &u.CreatedAt, &lastLogin,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -82,13 +84,19 @@ func (r *UserRepo) getOne(query string, args ...any) (*User, error) {
 	return u, nil
 }
 
-// UpdatePassword 更新密码哈希并清除强制改密标记
-func (r *UserRepo) UpdatePassword(id int64, passwordHash string) error {
-	_, err := r.db.Exec("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?", passwordHash, id)
+// UpdatePassword 更新密码哈希、清除强制改密标记并自增令牌版本。
+//
+// 返回自增后的令牌版本：改密前签发的令牌因版本不匹配而立即失效。
+func (r *UserRepo) UpdatePassword(id int64, passwordHash string) (int, error) {
+	var version int
+	err := r.db.QueryRow(
+		"UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1 WHERE id = ? RETURNING token_version",
+		passwordHash, id,
+	).Scan(&version)
 	if err != nil {
-		return fmt.Errorf("更新密码失败: %w", err)
+		return 0, fmt.Errorf("更新密码失败: %w", err)
 	}
-	return nil
+	return version, nil
 }
 
 // UpdateLastLogin 更新最后登录时间

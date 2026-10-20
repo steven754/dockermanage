@@ -61,7 +61,7 @@ func TestTokenManagerIssueAndParse(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	tm := auth.NewTokenManager(secret)
 
-	pair, err := tm.Issue(1, "admin", true)
+	pair, err := tm.Issue(1, "admin", true, 0)
 	if err != nil {
 		t.Fatalf("签发 token 失败: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestTokenManagerIssueAndParse(t *testing.T) {
 
 func TestTokenManagerRejectsWrongSecret(t *testing.T) {
 	tm := auth.NewTokenManager([]byte("secret-one-secret-one-secret-one-"))
-	pair, err := tm.Issue(1, "admin", false)
+	pair, err := tm.Issue(1, "admin", false, 0)
 	if err != nil {
 		t.Fatalf("签发 token 失败: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestTokenManagerExpiredToken(t *testing.T) {
 	base := time.Now()
 	tm := auth.NewTokenManager(secret).WithClock(func() time.Time { return base })
 
-	pair, err := tm.Issue(1, "admin", false)
+	pair, err := tm.Issue(1, "admin", false, 0)
 	if err != nil {
 		t.Fatalf("签发 token 失败: %v", err)
 	}

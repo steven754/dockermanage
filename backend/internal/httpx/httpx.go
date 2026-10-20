@@ -33,6 +33,8 @@ const (
 	CodeInternal         = "INTERNAL_ERROR"
 	CodeContainerMissing = "CONTAINER_NOT_FOUND"
 	CodeImageMissing     = "IMAGE_NOT_FOUND"
+	// CodeMustChangePassword 尚未修改初始密码，除改密相关接口外一律拒绝
+	CodeMustChangePassword = "MUST_CHANGE_PASSWORD"
 )
 
 // WriteJSON 写出 JSON 响应

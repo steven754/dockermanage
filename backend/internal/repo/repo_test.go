@@ -105,7 +105,8 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatal("last_login_at 应被更新")
 	}
 
-	if err := store.Users.UpdatePassword(user.ID, "new-hash"); err != nil {
+	newVersion, err := store.Users.UpdatePassword(user.ID, "new-hash")
+	if err != nil {
 		t.Fatalf("更新密码失败: %v", err)
 	}
 	byID, err = store.Users.GetByID(user.ID)
@@ -117,6 +118,12 @@ func TestUserRepoCRUD(t *testing.T) {
 	}
 	if byID.MustChangePassword {
 		t.Fatal("更新密码后应清除强制改密标记")
+	}
+	if byID.TokenVersion != newVersion {
+		t.Fatalf("期望令牌版本 %d，实际 %d", newVersion, byID.TokenVersion)
+	}
+	if newVersion != 1 {
+		t.Fatalf("首次改密后期望令牌版本自增为 1，实际 %d", newVersion)
 	}
 }
 

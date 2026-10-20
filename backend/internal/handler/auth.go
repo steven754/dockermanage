@@ -59,7 +59,8 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.auth.ChangePassword(r.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
+	resp, err := h.auth.ChangePassword(r.Context(), userID, req.OldPassword, req.NewPassword)
+	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			httpx.WriteError(w, r, http.StatusUnauthorized, httpx.CodeUnauthorized, "旧密码不正确")
@@ -74,7 +75,8 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("密码已修改", "userId", userID)
-	httpx.OK(w)
+	// 返回新令牌：改密前签发的令牌已失效，前端需替换本地令牌
+	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 
 // Logout 处理 POST /api/v1/auth/logout

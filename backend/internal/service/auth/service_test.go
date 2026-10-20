@@ -117,26 +117,33 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 旧密码错误
-	err = svc.ChangePassword(t.Context(), 1, "wrong", "new-strong-password")
+	_, err = svc.ChangePassword(t.Context(), 1, "wrong", "new-strong-password")
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("期望 ErrInvalidCredentials，实际 %v", err)
 	}
 
 	// 新密码过短
-	err = svc.ChangePassword(t.Context(), 1, password, "short")
+	_, err = svc.ChangePassword(t.Context(), 1, password, "short")
 	if !errors.Is(err, auth.ErrPasswordTooWeak) {
 		t.Fatalf("期望 ErrPasswordTooWeak，实际 %v", err)
 	}
 
 	// 用户不存在
-	err = svc.ChangePassword(t.Context(), 999, password, "new-strong-password")
+	_, err = svc.ChangePassword(t.Context(), 999, password, "new-strong-password")
 	if !errors.Is(err, auth.ErrUserNotFound) {
 		t.Fatalf("期望 ErrUserNotFound，实际 %v", err)
 	}
 
-	// 正常改密
-	if err := svc.ChangePassword(t.Context(), 1, password, "new-strong-password"); err != nil {
+	// 正常改密：返回新令牌，强制改密标记已清零
+	resp, err := svc.ChangePassword(t.Context(), 1, password, "new-strong-password")
+	if err != nil {
 		t.Fatalf("改密失败: %v", err)
+	}
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
+		t.Fatal("改密后应返回新的令牌对")
+	}
+	if resp.MustChangePassword {
+		t.Fatal("改密后不应再要求强制改密")
 	}
 
 	// 旧密码不再可用
@@ -144,12 +151,15 @@ func TestChangePassword(t *testing.T) {
 		t.Fatalf("旧密码应失效，实际 %v", err)
 	}
 	// 新密码可用
-	resp, err := svc.Login(t.Context(), auth.DefaultUsername, "new-strong-password")
+	loginResp, err := svc.Login(t.Context(), auth.DefaultUsername, "new-strong-password")
 	if err != nil {
 		t.Fatalf("新密码登录失败: %v", err)
 	}
-	if resp.MustChangePassword {
+	if loginResp.MustChangePassword {
 		t.Fatal("改密后 mustChangePassword 应为 false")
+	}
+	if loginResp.DefaultPasswordInUse {
+		t.Fatal("改密后不应再标记仍在使用初始密码")
 	}
 
 	// 初始密码文件应被清理

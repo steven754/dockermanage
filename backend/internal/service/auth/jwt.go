@@ -34,6 +34,8 @@ type Claims struct {
 	Username           string    `json:"username"`
 	MustChangePassword bool      `json:"mcp"`
 	TokenType          TokenType `json:"typ"`
+	// TokenVersion 令牌版本，改密后自增；与服务端当前版本不一致的令牌视为已失效
+	TokenVersion int `json:"tv"`
 	jwt.RegisteredClaims
 }
 
@@ -62,14 +64,16 @@ type TokenPair struct {
 }
 
 // Issue 为用户签发 access / refresh 双 token
-func (m *TokenManager) Issue(userID int64, username string, mustChange bool) (*TokenPair, error) {
+//
+// tokenVersion 为用户当前令牌版本；改密后版本自增，旧令牌随即失效。
+func (m *TokenManager) Issue(userID int64, username string, mustChange bool, tokenVersion int) (*TokenPair, error) {
 	now := m.now()
 
-	access, err := m.sign(userID, username, mustChange, TokenTypeAccess, now, now.Add(AccessTokenTTL))
+	access, err := m.sign(userID, username, mustChange, tokenVersion, TokenTypeAccess, now, now.Add(AccessTokenTTL))
 	if err != nil {
 		return nil, err
 	}
-	refresh, err := m.sign(userID, username, mustChange, TokenTypeRefresh, now, now.Add(RefreshTokenTTL))
+	refresh, err := m.sign(userID, username, mustChange, tokenVersion, TokenTypeRefresh, now, now.Add(RefreshTokenTTL))
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +85,12 @@ func (m *TokenManager) Issue(userID int64, username string, mustChange bool) (*T
 }
 
 // sign 签发单个 token
-func (m *TokenManager) sign(userID int64, username string, mustChange bool, typ TokenType, issuedAt, expiresAt time.Time) (string, error) {
+func (m *TokenManager) sign(userID int64, username string, mustChange bool, tokenVersion int, typ TokenType, issuedAt, expiresAt time.Time) (string, error) {
 	claims := Claims{
 		Username:           username,
 		MustChangePassword: mustChange,
 		TokenType:          typ,
+		TokenVersion:       tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   fmt.Sprintf("%d", userID),
 			IssuedAt:  jwt.NewNumericDate(issuedAt),

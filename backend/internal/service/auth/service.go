@@ -163,7 +163,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (*model.
 		return nil, ErrInvalidCredentials
 	}
 
-	pair, err := s.tokens.Issue(user.ID, user.Username, user.MustChangePassword)
+	pair, err := s.tokens.Issue(user.ID, user.Username, user.MustChangePassword, user.TokenVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -181,27 +181,31 @@ func (s *Service) Login(ctx context.Context, username, password string) (*model.
 	}, nil
 }
 
-// ChangePassword 修改密码
-func (s *Service) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) error {
+// ChangePassword 修改密码。
+//
+// 改密会自增用户的令牌版本，使改密前签发的所有令牌立即失效；
+// 同时返回一对新令牌（must_change_password 已清零），供前端无缝替换。
+func (s *Service) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) (*model.LoginResponse, error) {
 	user, err := s.users.GetByID(userID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return ErrUserNotFound
+			return nil, ErrUserNotFound
 		}
-		return err
+		return nil, err
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
-		return ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
 	}
 	if len(newPassword) < MinPasswordLength {
-		return ErrPasswordTooWeak
+		return nil, ErrPasswordTooWeak
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("生成密码哈希失败: %w", err)
+		return nil, fmt.Errorf("生成密码哈希失败: %w", err)
 	}
-	if err := s.users.UpdatePassword(userID, string(hash)); err != nil {
-		return err
+	newVersion, err := s.users.UpdatePassword(userID, string(hash))
+	if err != nil {
+		return nil, err
 	}
 
 	// 改密后移除初始密码文件
@@ -209,7 +213,19 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, oldPassword,
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		slog.Warn("删除初始密码文件失败", "path", path, "error", err)
 	}
-	return nil
+
+	// 签发新令牌：强制改密标记已清零，令牌版本为自增后的值
+	pair, err := s.tokens.Issue(userID, user.Username, false, newVersion)
+	if err != nil {
+		return nil, err
+	}
+	return &model.LoginResponse{
+		AccessToken:          pair.AccessToken,
+		RefreshToken:         pair.RefreshToken,
+		ExpiresIn:            pair.ExpiresIn,
+		MustChangePassword:   false,
+		DefaultPasswordInUse: false,
+	}, nil
 }
 
 // Me 查询当前用户信息

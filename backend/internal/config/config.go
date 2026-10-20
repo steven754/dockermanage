@@ -32,6 +32,16 @@ type Config struct {
 	RetentionDays int
 	// InitialPassword 首启初始密码（仅数据库无用户时生效一次）
 	InitialPassword string
+	// TrustProxy 是否采信 X-Forwarded-For / X-Real-IP
+	//
+	// 默认关闭：直连场景下攻击者可伪造该头绕过登录限流。
+	// 仅当面板确实部署在反向代理之后时才应开启。
+	TrustProxy bool
+	// LoginRateLimit 每分钟允许的登录尝试次数
+	//
+	// 注意：容器化部署时所有请求的来源地址相同（端口转发），
+	// 该阈值实际是全局的，因此需要留出余量。
+	LoginRateLimit int
 }
 
 // DefaultInitialPassword 默认初始密码。
@@ -53,6 +63,8 @@ func Default() Config {
 		SampleIntervalSeconds: 10,
 		RetentionDays:         7,
 		InitialPassword:       DefaultInitialPassword,
+		TrustProxy:            false,
+		LoginRateLimit:        5,
 	}
 }
 
@@ -69,6 +81,8 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.DockerHost, "docker-host", cfg.DockerHost, "Docker daemon 地址，留空取 DOCKER_HOST 环境变量（环境变量 PANEL_DOCKER_HOST）")
 	fs.StringVar(&cfg.Timezone, "tz", cfg.Timezone, "时区，如 Asia/Shanghai（环境变量 TZ）")
 	fs.StringVar(&cfg.InitialPassword, "initial-password", cfg.InitialPassword, "首启初始密码，仅数据库无用户时生效一次（环境变量 PANEL_INITIAL_PASSWORD）")
+	fs.BoolVar(&cfg.TrustProxy, "trust-proxy", cfg.TrustProxy, "是否采信 X-Forwarded-For / X-Real-IP，仅在反向代理后部署时开启（环境变量 PANEL_TRUST_PROXY）")
+	fs.IntVar(&cfg.LoginRateLimit, "login-rate-limit", cfg.LoginRateLimit, "每分钟允许的登录尝试次数（环境变量 PANEL_LOGIN_RATE_LIMIT）")
 
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
@@ -112,6 +126,24 @@ func Load(args []string) (Config, error) {
 	if !fsWasSet(fs, "initial-password") {
 		if v, ok := os.LookupEnv("PANEL_INITIAL_PASSWORD"); ok && v != "" {
 			cfg.InitialPassword = v
+		}
+	}
+	if !fsWasSet(fs, "trust-proxy") {
+		if v, ok := os.LookupEnv("PANEL_TRUST_PROXY"); ok && v != "" {
+			b, err := strconv.ParseBool(strings.TrimSpace(v))
+			if err != nil {
+				return cfg, fmt.Errorf("PANEL_TRUST_PROXY 取值非法: %q", v)
+			}
+			cfg.TrustProxy = b
+		}
+	}
+	if !fsWasSet(fs, "login-rate-limit") {
+		if v, ok := os.LookupEnv("PANEL_LOGIN_RATE_LIMIT"); ok && v != "" {
+			n, err := strconv.Atoi(strings.TrimSpace(v))
+			if err != nil || n <= 0 {
+				return cfg, fmt.Errorf("PANEL_LOGIN_RATE_LIMIT 取值非法: %q", v)
+			}
+			cfg.LoginRateLimit = n
 		}
 	}
 	if !fsWasSet(fs, "tz") {

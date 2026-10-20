@@ -112,7 +112,7 @@ func newLiveEnv(t *testing.T) (*liveEnv, *docker.Client) {
 		Store:      store,
 	})
 
-	router := server.NewRouter(server.Deps{Handler: h, Tokens: tokens})
+	router := server.NewRouter(server.Deps{Handler: h, Tokens: tokens, Users: store.Users})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
 
@@ -133,7 +133,34 @@ func newLiveEnv(t *testing.T) (*liveEnv, *docker.Client) {
 		t.Fatalf("解析登录响应失败: %v", err)
 	}
 
-	return &liveEnv{srv: srv, token: login.AccessToken}, cli
+	// 初始密码未修改时后端会拒绝除改密类接口外的所有请求（强制改密），
+	// 因此这里先完成改密，拿到新令牌后再进行 WebSocket 测试
+	changeReq, err := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/auth/password",
+		strings.NewReader(fmt.Sprintf(`{"oldPassword":"%s","newPassword":"NewPassw0rd!2026"}`, password)))
+	if err != nil {
+		t.Fatalf("构造改密请求失败: %v", err)
+	}
+	changeReq.Header.Set("Content-Type", "application/json")
+	changeReq.Header.Set("Authorization", "Bearer "+login.AccessToken)
+	changeResp, err := http.DefaultClient.Do(changeReq)
+	if err != nil {
+		t.Fatalf("改密请求失败: %v", err)
+	}
+	defer func() { _ = changeResp.Body.Close() }()
+	if changeResp.StatusCode != http.StatusOK {
+		t.Fatalf("改密返回 %d", changeResp.StatusCode)
+	}
+	var changed struct {
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.NewDecoder(changeResp.Body).Decode(&changed); err != nil {
+		t.Fatalf("解析改密响应失败: %v", err)
+	}
+	if changed.AccessToken == "" {
+		t.Fatal("改密后应返回新令牌")
+	}
+
+	return &liveEnv{srv: srv, token: changed.AccessToken}, cli
 }
 
 // startTestContainer 创建并启动一个临时容器

@@ -14,6 +14,7 @@ import {
   authApi,
   getAccessToken,
   setAccessToken,
+  setMustChangePasswordHandler,
   setRefreshToken,
   setUnauthorizedHandler,
 } from '@/lib/api'
@@ -75,6 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null)
   }, [clearSession])
 
+  // 403 MUST_CHANGE_PASSWORD → 强制回到改密流程（后端已强制，此处同步前端状态）
+  useEffect(() => {
+    setMustChangePasswordHandler(() => {
+      setMustChangePassword(true)
+    })
+    return () => setMustChangePasswordHandler(null)
+  }, [])
+
   // 启动时用已有 token 拉一次 /auth/me
   useEffect(() => {
     let cancelled = false
@@ -132,7 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const changePassword = useCallback(
     async (oldPassword: string, newPassword: string) => {
-      await authApi.changePassword(oldPassword, newPassword)
+      const res = await authApi.changePassword(oldPassword, newPassword)
+      // 改密后旧令牌已失效，必须换成新令牌
+      setAccessToken(res.accessToken)
+      setRefreshToken(res.refreshToken)
       setMustChangePassword(false)
       setDefaultPasswordInUse(false)
       try {

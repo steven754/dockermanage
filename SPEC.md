@@ -762,8 +762,16 @@ docker compose -f docker-compose.dev.yml up
 | D-E5 | 错误文案 | 中文主句 + Docker 原文作为细节，便于用户定位 | §6.2 |
 | D-E6 | 磁盘挂载点 | 用 `/`（宿主机视角的 `/var/lib/docker` 在面板容器内通常不可见） | §2 / §5.3 |
 | D-E7 | 容器实时字段 | 来自采样器缓存，列表接口带 2s 缓存，写操作后失效；可能为 null | §6.1 |
+| D-E8 | 强制改密由后端强制 | 鉴权中间件读数据库的 `must_change_password`，为真时只放行改密类接口，其余 403 `MUST_CHANGE_PASSWORD` | §8.2 / 契约 §0.2 |
+| D-E9 | 改密后旧令牌立即失效 | users 表新增 `token_version`，改密自增；JWT 携带版本号，不匹配即 401。改密响应返回新令牌对 | §9.1 / 契约 §1 |
+| D-E10 | 查询参数令牌仅限流式端点 | `?access_token=` 只在 SSE / WebSocket 端点生效，避免令牌落入代理访问日志与浏览器历史 | 契约 §0.1 |
+| D-E11 | 代理头采信收紧 | **默认不采信** `X-Forwarded-For` / `X-Real-IP`，一律用 `RemoteAddr`；仅当 `PANEL_TRUST_PROXY=true`（确认部署在反代之后）才采信，防止伪造头绕过登录限流 | §8.2 |
+| D-E12 | WebSocket Origin 校验 | 握手时校验 Origin 主机与请求 Host 一致，跨站握手被拒 | §8.2 |
+| D-E13 | 登录限流阈值可配 | 容器化部署时所有请求来源地址相同，限流实际是全局的；阈值由 `PANEL_LOGIN_RATE_LIMIT` 控制（默认 10/分钟） | §8.2 |
 
-> 14 项用户拍板决策 + 7 项实现期追加决策 = 21 项，均以本表与 §4.3 为准。
+> 14 项用户拍板决策 + 13 项实现期追加决策 = 27 项，均以本表与 §4.3 为准。
+>
+> D-E8 ~ D-E12 来自 2026-10-20 的安全增量扫描（5 条 finding 全部处理）。
 
 
 ---
@@ -783,6 +791,7 @@ docker compose -f docker-compose.dev.yml up
 - [ ] `ui-mocks/` 4 屏设计稿已被前端实现直接采纳，不重新设计
 - [ ] §9.1 migration 已就绪（users / settings / system_stats / container_stats / events 五张表先行，notify / templates 预留）
 - [ ] 鉴权模块先落地（首启初始密码 → 强制改密 → JWT 双 token），再开其他接口
+- [ ] **强制改密由后端强制执行**（中间件拦截 + 令牌版本自增），不依赖前端跳转
 
 ---
 

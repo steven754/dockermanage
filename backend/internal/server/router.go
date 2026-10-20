@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/steven754/dockermanage/backend/internal/handler"
+	"github.com/steven754/dockermanage/backend/internal/repo"
 	"github.com/steven754/dockermanage/backend/internal/service/auth"
 )
 
@@ -16,8 +17,14 @@ type Deps struct {
 	Handler *handler.Handler
 	// Tokens JWT 管理器
 	Tokens *auth.TokenManager
+	// Users 用户仓储，用于校验令牌版本与强制改密状态
+	Users *repo.UserRepo
 	// WebDir 前端静态资源目录，留空使用内嵌资源
 	WebDir string
+	// TrustProxy 是否采信 X-Forwarded-For / X-Real-IP
+	TrustProxy bool
+	// LoginRateLimit 每分钟允许的登录尝试次数
+	LoginRateLimit int
 }
 
 // NewRouter 构建 HTTP 路由
@@ -38,11 +45,15 @@ func NewRouter(d Deps) http.Handler {
 
 	// 无需鉴权的接口
 	r.Get("/api/v1/version", h.Version)
-	r.With(LimitLogin(NewRateLimiter(5, time.Minute))).Post("/api/v1/auth/login", h.Login)
+	loginLimit := d.LoginRateLimit
+	if loginLimit <= 0 {
+		loginLimit = 5
+	}
+	r.With(LimitLogin(NewRateLimiter(loginLimit, time.Minute), d.TrustProxy)).Post("/api/v1/auth/login", h.Login)
 
 	// 需要鉴权的接口
 	authed := func(method, pattern string, fn http.HandlerFunc) {
-		r.With(Authenticate(d.Tokens)).Method(method, pattern, fn)
+		r.With(Authenticate(d.Tokens, d.Users)).Method(method, pattern, fn)
 	}
 
 	// 认证

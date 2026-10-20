@@ -135,9 +135,12 @@ func run(args []string) error {
 	})
 
 	router := server.NewRouter(server.Deps{
-		Handler: h,
-		Tokens:  tokenManager,
-		WebDir:  cfg.WebDir,
+		Handler:        h,
+		Tokens:         tokenManager,
+		Users:          store.Users,
+		WebDir:         cfg.WebDir,
+		TrustProxy:     cfg.TrustProxy,
+		LoginRateLimit: cfg.LoginRateLimit,
 	})
 
 	// 首启：生成初始密码
