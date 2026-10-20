@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   panel:
     image: ghcr.io/steven754/dockermanage:latest
