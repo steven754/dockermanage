@@ -43,8 +43,8 @@ func TestBootstrapCreatesUserAndPasswordFile(t *testing.T) {
 	if password == "" {
 		t.Fatal("首次启动应返回初始密码")
 	}
-	if len(password) != auth.DefaultPasswordLength {
-		t.Fatalf("期望密码长度 %d，实际 %d", auth.DefaultPasswordLength, len(password))
+	if password != auth.DefaultPassword {
+		t.Fatalf("期望默认初始密码 %q，实际 %q", auth.DefaultPassword, password)
 	}
 
 	// 明文密码文件应存在且权限为 0600
@@ -208,5 +208,61 @@ func TestLoadOrCreateSecret(t *testing.T) {
 	}
 	if string(again) != string(secret) {
 		t.Fatal("重复读取应返回相同密钥")
+	}
+}
+
+// TestBootstrapCustomInitialPassword 验证可通过构造参数指定首启初始密码
+func TestBootstrapCustomInitialPassword(t *testing.T) {
+	_, store, dir := newTestService(t)
+
+	tokens := auth.NewTokenManager([]byte("0123456789abcdef0123456789abcdef"))
+	svc := auth.NewWithPassword(store.Users, tokens, dir, "MyOwnPassw0rd")
+
+	password, err := svc.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatalf("初始化失败: %v", err)
+	}
+	if password != "MyOwnPassw0rd" {
+		t.Fatalf("期望自定义初始密码 MyOwnPassw0rd，实际 %q", password)
+	}
+}
+
+// TestBootstrapRandomPasswordFlag 验证初始密码设为 random 时生成随机密码
+func TestBootstrapRandomPasswordFlag(t *testing.T) {
+	_, store, dir := newTestService(t)
+
+	tokens := auth.NewTokenManager([]byte("0123456789abcdef0123456789abcdef"))
+	svc := auth.NewWithPassword(store.Users, tokens, dir, auth.RandomPasswordFlag)
+
+	password, err := svc.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatalf("初始化失败: %v", err)
+	}
+	if password == auth.RandomPasswordFlag || password == auth.DefaultPassword {
+		t.Fatalf("期望生成随机密码，实际 %q", password)
+	}
+	if len(password) != auth.DefaultPasswordLength {
+		t.Fatalf("期望密码长度 %d，实际 %d", auth.DefaultPasswordLength, len(password))
+	}
+}
+
+// TestLoginReportsDefaultPasswordInUse 验证登录响应会标记仍在使用初始密码
+func TestLoginReportsDefaultPasswordInUse(t *testing.T) {
+	svc, _, _ := newTestService(t)
+
+	password, err := svc.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatalf("初始化失败: %v", err)
+	}
+
+	resp, err := svc.Login(t.Context(), auth.DefaultUsername, password)
+	if err != nil {
+		t.Fatalf("登录失败: %v", err)
+	}
+	if !resp.DefaultPasswordInUse {
+		t.Fatal("首次登录应标记仍在使用初始密码")
+	}
+	if !resp.MustChangePassword {
+		t.Fatal("首次登录应要求强制改密")
 	}
 }

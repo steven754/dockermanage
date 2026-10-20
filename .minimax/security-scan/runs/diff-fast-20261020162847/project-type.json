@@ -1,0 +1,184 @@
+{
+  "schema": "agentsecscan.agent_profile.v1",
+  "project_type": "云原生/基础设施类项目",
+  "project_type_code": "cloud_native",
+  "product_category": "云原生/基础设施类项目",
+  "product_subtype": "容器/Kubernetes/Serverless",
+  "product_shape": "云原生/基础设施类项目",
+  "product_shape_decision": "云原生/基础设施类项目：score=44; frameworks=容器/Kubernetes/Serverless; evidence=Dockerfile:path-marker(+22); docker-compose.yml:path-marker(+22); runner_up=Web类项目:40。",
+  "product_shape_evidence_chain": {
+    "conclusion": "云原生/基础设施类项目",
+    "category": "云原生/基础设施类项目",
+    "decision": "云原生/基础设施类项目：score=44; frameworks=容器/Kubernetes/Serverless; evidence=Dockerfile:path-marker(+22); docker-compose.yml:path-marker(+22); runner_up=Web类项目:40。",
+    "standard": "依赖、Manifest、路径/内容信号加权评分，取最高分一级类目。",
+    "score": 44,
+    "basis": [
+      "winner=云原生/基础设施类项目; score=44",
+      "frameworks=容器/Kubernetes/Serverless",
+      "runner_up=Web类项目:40"
+    ],
+    "evidence": [
+      {
+        "rank": 1,
+        "source": "路径",
+        "path": "Dockerfile",
+        "signal": "path-marker",
+        "weight": 22,
+        "framework": "容器/Kubernetes/Serverless"
+      },
+      {
+        "rank": 2,
+        "source": "路径",
+        "path": "docker-compose.yml",
+        "signal": "path-marker",
+        "weight": 22,
+        "framework": "容器/Kubernetes/Serverless"
+      }
+    ],
+    "competingCandidates": [
+      {
+        "code": "cloud_native",
+        "product_shape": "云原生/基础设施类项目",
+        "score": 44
+      },
+      {
+        "code": "web_frontend",
+        "product_shape": "Web类项目",
+        "score": 40
+      }
+    ]
+  },
+  "product_frameworks": [
+    "容器/Kubernetes/Serverless"
+  ],
+  "product_shape_candidates": [
+    {
+      "code": "cloud_native",
+      "project_type": "云原生/基础设施类项目",
+      "product_shape": "云原生/基础设施类项目",
+      "score": 44,
+      "frameworks": [
+        "容器/Kubernetes/Serverless"
+      ],
+      "evidence": [
+        {
+          "product_key": "cloud_native",
+          "path": "Dockerfile",
+          "reason": "path product marker",
+          "framework": "容器/Kubernetes/Serverless"
+        },
+        {
+          "product_key": "cloud_native",
+          "path": "docker-compose.yml",
+          "reason": "path product marker",
+          "framework": "容器/Kubernetes/Serverless"
+        }
+      ]
+    },
+    {
+      "code": "web_frontend",
+      "project_type": "Web类项目",
+      "product_shape": "Web类项目",
+      "score": 40,
+      "frameworks": [
+        "react",
+        "vite"
+      ],
+      "evidence": [
+        {
+          "product_key": "web_frontend",
+          "path": "frontend/package.json",
+          "reason": "dependency `react`",
+          "framework": "react"
+        },
+        {
+          "product_key": "web_frontend",
+          "path": "frontend/package.json",
+          "reason": "package scripts use vite",
+          "framework": "vite"
+        },
+        {
+          "product_key": "web_frontend",
+          "path": "frontend/package.json",
+          "reason": "dependency `vite`",
+          "framework": "vite"
+        }
+      ]
+    }
+  ],
+  "is_agent_project": false,
+  "agent_confidence": "low",
+  "agent_score": 94,
+  "agent_type": "rag-agent",
+  "agent_subtype": "",
+  "agent_types": [
+    "autonomous-agent",
+    "rag-agent",
+    "tool-agent"
+  ],
+  "capabilities": {
+    "llm_call": false,
+    "tool_execution": true,
+    "classification_standard": "同时发现 LLM 调用能力与工具执行/注册能力才判定为 AI Agent 类项目"
+  },
+  "known_agent_families": [],
+  "model_providers": [],
+  "signal_counts": {
+    "autonomy": 1,
+    "memory-rag": 6,
+    "tool-use": 1
+  },
+  "evidence": [
+    {
+      "category": "tool-use",
+      "path": "backend/internal/service/auth/jwt.go",
+      "reason": "matched `\\bMCP\\b|\\bmcpServers\\b`",
+      "agent_type": "tool-agent"
+    },
+    {
+      "category": "autonomy",
+      "path": "frontend/src/components/container/TerminalTab.tsx",
+      "reason": "matched `\\bobserve\\b`",
+      "agent_type": "autonomous-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "backend/go.mod",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "backend/internal/db/db.go",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "backend/internal/handler/dashboard.go",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "backend/internal/model/dashboard.go",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "frontend/src/lib/types.ts",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    },
+    {
+      "category": "memory-rag",
+      "path": "frontend/src/pages/Dashboard.tsx",
+      "reason": "matched `\\bmemory\\b`",
+      "agent_type": "rag-agent"
+    }
+  ],
+  "decision_reason": "未同时满足 AI Agent 判定标准，缺少：LLM 调用能力；按产品形态信号进一步分类。",
+  "project_path": "/Users/steven/docker/dockermanage",
+  "scanned_files": 164
+}

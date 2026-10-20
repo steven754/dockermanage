@@ -20,6 +20,7 @@ export function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [usedDefaultPassword, setUsedDefaultPassword] = useState(false)
 
   // 已登录则直接进入面板
   useEffect(() => {
@@ -34,6 +35,7 @@ export function Login() {
     setPending(true)
     try {
       const result = await login(username.trim(), password)
+      setUsedDefaultPassword(result.defaultPasswordInUse)
       if (result.mustChangePassword) {
         setOldPassword(password)
         setPassword('')
@@ -89,6 +91,11 @@ export function Login() {
         <div className="surface-card p-5">
           {mustChangePassword ? (
             <form onSubmit={handleChangePassword} className="space-y-4">
+              {usedDefaultPassword ? (
+                <p className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-warning">
+                  当前仍在使用默认初始密码，请立即设置一个仅你知道的强密码。
+                </p>
+              ) : null}
               <div className="space-y-1.5">
                 <Label htmlFor="old-password">当前密码</Label>
                 <div className="relative">
@@ -142,6 +149,20 @@ export function Login() {
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
+              <div className="rounded-md border border-brand/30 bg-brand-soft px-3 py-2 text-[12px] leading-relaxed text-fg-secondary">
+                <div className="mb-1 font-medium text-fg-primary">默认账号</div>
+                <div className="flex items-center gap-4">
+                  <span>
+                    用户名 <code className="rounded bg-bg-muted px-1 py-0.5 font-mono text-fg-primary">admin</code>
+                  </span>
+                  <span>
+                    密码 <code className="rounded bg-bg-muted px-1 py-0.5 font-mono text-fg-primary">admin</code>
+                  </span>
+                </div>
+                <div className="mt-1.5 text-[11px] text-fg-subtle">
+                  登录后系统会强制要求你立即修改密码
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="username">用户名</Label>
                 <div className="relative">
@@ -181,7 +202,8 @@ export function Login() {
         </div>
 
         <p className="mt-4 text-center text-[11px] text-fg-subtle">
-          首次启动的随机密码打印在后端日志中 · 主题 {resolvedTheme === 'dark' ? '暗色' : '亮色'}
+          初始密码可在后端日志与 <code className="font-mono">data/.password</code> 中查看 · 主题{' '}
+          {resolvedTheme === 'dark' ? '暗色' : '亮色'}
         </p>
       </div>
     </div>

@@ -94,7 +94,7 @@ func run(args []string) error {
 		return err
 	}
 	tokenManager := auth.NewTokenManager(secret)
-	authSvc := auth.New(store.Users, tokenManager, cfg.DataDir)
+	authSvc := auth.NewWithPassword(store.Users, tokenManager, cfg.DataDir, cfg.InitialPassword)
 
 	// 采样器
 	collector := stats.NewHostCollector(diskMountpoint())

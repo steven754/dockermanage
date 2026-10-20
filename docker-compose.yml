@@ -24,6 +24,9 @@ services:
       PANEL_DATA: "/data"
       PANEL_COMPOSE_DIR: "/compose"
       PANEL_LOG_LEVEL: "info"
+      # 首启初始密码，默认 admin。改成 "random" 则生成 16 位随机密码；
+      # 改成具体字符串则用该值。首次登录后系统会强制改密。
+      PANEL_INITIAL_PASSWORD: "${PANEL_INITIAL_PASSWORD:-admin}"
       TZ: "${TZ:-Asia/Shanghai}"
 
     # 镜像健康检查

@@ -30,7 +30,15 @@ type Config struct {
 	SampleIntervalSeconds int
 	// RetentionDays stats / events 保留天数
 	RetentionDays int
+	// InitialPassword 首启初始密码（仅数据库无用户时生效一次）
+	InitialPassword string
 }
+
+// DefaultInitialPassword 默认初始密码。
+//
+// 沿用 Portainer 的体验：默认 admin / admin，登录后强制改密。
+// 需要更强默认值时用环境变量 PANEL_INITIAL_PASSWORD 覆盖。
+const DefaultInitialPassword = "admin"
 
 // Default 返回默认配置
 func Default() Config {
@@ -44,6 +52,7 @@ func Default() Config {
 		Timezone:              "",
 		SampleIntervalSeconds: 10,
 		RetentionDays:         7,
+		InitialPassword:       DefaultInitialPassword,
 	}
 }
 
@@ -59,6 +68,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.WebDir, "web-dir", cfg.WebDir, "前端静态资源目录，留空使用内嵌资源（环境变量 PANEL_WEB_DIR）")
 	fs.StringVar(&cfg.DockerHost, "docker-host", cfg.DockerHost, "Docker daemon 地址，留空取 DOCKER_HOST 环境变量（环境变量 PANEL_DOCKER_HOST）")
 	fs.StringVar(&cfg.Timezone, "tz", cfg.Timezone, "时区，如 Asia/Shanghai（环境变量 TZ）")
+	fs.StringVar(&cfg.InitialPassword, "initial-password", cfg.InitialPassword, "首启初始密码，仅数据库无用户时生效一次（环境变量 PANEL_INITIAL_PASSWORD）")
 
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
@@ -97,6 +107,11 @@ func Load(args []string) (Config, error) {
 	if !fsWasSet(fs, "docker-host") {
 		if v, ok := os.LookupEnv("PANEL_DOCKER_HOST"); ok && v != "" {
 			cfg.DockerHost = v
+		}
+	}
+	if !fsWasSet(fs, "initial-password") {
+		if v, ok := os.LookupEnv("PANEL_INITIAL_PASSWORD"); ok && v != "" {
+			cfg.InitialPassword = v
 		}
 	}
 	if !fsWasSet(fs, "tz") {

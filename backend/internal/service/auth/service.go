@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -23,6 +24,13 @@ const (
 	PasswordFileName = ".password"
 	// DefaultUsername 默认用户名
 	DefaultUsername = "admin"
+	// DefaultPassword 默认初始密码
+	//
+	// 沿用 Portainer 的体验：首次登录用 admin / admin，登录后被强制要求改密。
+	// 需要更强默认值时用环境变量 PANEL_INITIAL_PASSWORD 覆盖。
+	DefaultPassword = "admin"
+	// RandomPasswordFlag 初始密码设为该值时改为生成随机密码
+	RandomPasswordFlag = "random"
 	// MinPasswordLength 修改密码时的最小长度
 	MinPasswordLength = 8
 )
@@ -42,11 +50,23 @@ type Service struct {
 	users   *repo.UserRepo
 	tokens  *TokenManager
 	dataDir string
+	// initialPassword 首启写入的初始密码；为空时退回 DefaultPassword
+	initialPassword string
 }
 
 // New 创建认证服务
 func New(users *repo.UserRepo, tokens *TokenManager, dataDir string) *Service {
 	return &Service{users: users, tokens: tokens, dataDir: dataDir}
+}
+
+// NewWithPassword 创建认证服务并指定首启初始密码。
+//
+// initialPassword 为空时使用 DefaultPassword（admin）。
+func NewWithPassword(users *repo.UserRepo, tokens *TokenManager, dataDir, initialPassword string) *Service {
+	if initialPassword == "" {
+		initialPassword = DefaultPassword
+	}
+	return &Service{users: users, tokens: tokens, dataDir: dataDir, initialPassword: initialPassword}
 }
 
 // LoadOrCreateSecret 读取 JWT 密钥，不存在则生成随机 32 字节并以 0600 权限写入。
@@ -73,9 +93,11 @@ func LoadOrCreateSecret(dataDir string) ([]byte, error) {
 	return secret, nil
 }
 
-// Bootstrap 首启流程：数据库无用户时生成初始密码。
+// Bootstrap 首启流程：数据库无用户时写入初始密码。
 //
+// 初始密码默认为 admin（与 Portainer 一致），可用环境变量 PANEL_INITIAL_PASSWORD 覆盖。
 // 返回初始密码（仅首启非空），密码同时写入 <data>/.password 且在日志中打印一次。
+// 无论用哪种初始密码，登录后都必须改密（must_change_password = true）。
 func (s *Service) Bootstrap(ctx context.Context) (string, error) {
 	count, err := s.users.Count()
 	if err != nil {
@@ -85,9 +107,17 @@ func (s *Service) Bootstrap(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	password, err := GeneratePassword(DefaultPasswordLength)
-	if err != nil {
-		return "", err
+	password := s.initialPassword
+	if password == "" {
+		password = DefaultPassword
+	}
+	// 显式要求随机密码时走随机生成（等价于旧行为）
+	if strings.EqualFold(password, RandomPasswordFlag) {
+		generated, err := GeneratePassword(DefaultPasswordLength)
+		if err != nil {
+			return "", err
+		}
+		password = generated
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -104,10 +134,18 @@ func (s *Service) Bootstrap(ctx context.Context) (string, error) {
 	}
 
 	// 密码只在这一次打印
-	slog.Warn("首次启动，已生成初始管理员密码，请登录后立即修改",
-		"username", DefaultUsername,
-		"password", password,
-		"passwordFile", path)
+	if password == DefaultPassword {
+		slog.Warn("首次启动，已启用默认初始密码 admin，请登录后立即修改",
+			"username", DefaultUsername,
+			"password", password,
+			"passwordFile", path,
+			"hint", "可用环境变量 PANEL_INITIAL_PASSWORD 指定更强的初始密码")
+	} else {
+		slog.Warn("首次启动，已生成初始管理员密码，请登录后立即修改",
+			"username", DefaultUsername,
+			"password", password,
+			"passwordFile", path)
+	}
 	return password, nil
 }
 
@@ -138,6 +176,8 @@ func (s *Service) Login(ctx context.Context, username, password string) (*model.
 		RefreshToken:       pair.RefreshToken,
 		ExpiresIn:          pair.ExpiresIn,
 		MustChangePassword: user.MustChangePassword,
+		// 用户从未改过密码即视为仍在使用初始密码，前端据此提示尽快修改
+		DefaultPasswordInUse: user.MustChangePassword,
 	}, nil
 }
 

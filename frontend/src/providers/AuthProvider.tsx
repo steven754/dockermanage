@@ -29,11 +29,13 @@ import type { CurrentUser } from '@/lib/types'
 interface AuthContextValue {
   /** 是否已完成鉴权（含 token 与用户信息） */
   isAuthenticated: boolean
-  /** 首次启动生成的随机密码 → 需要强制改密 */
+  /** 首启初始密码未修改 → 需要强制改密 */
   mustChangePassword: boolean
+  /** 仍在使用首启初始密码 → 提示尽快修改 */
+  defaultPasswordInUse: boolean
   user: CurrentUser | null
   isBootstrapping: boolean
-  login: (username: string, password: string) => Promise<{ mustChangePassword: boolean }>
+  login: (username: string, password: string) => Promise<{ mustChangePassword: boolean; defaultPasswordInUse: boolean }>
   logout: () => Promise<void>
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>
   refreshUser: () => Promise<void>
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [mustChangePassword, setMustChangePassword] = useState(false)
+  const [defaultPasswordInUse, setDefaultPasswordInUse] = useState(false)
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const mounted = useRef(true)
 
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshToken(null)
     setUser(null)
     setMustChangePassword(false)
+    setDefaultPasswordInUse(false)
     queryClient.clear()
   }, [queryClient])
 
@@ -105,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshToken(res.refreshToken)
     const mustChange = Boolean(res.mustChangePassword)
     setMustChangePassword(mustChange)
+    setDefaultPasswordInUse(Boolean(res.defaultPasswordInUse))
     try {
       const me = await authApi.me()
       setUser(me)
@@ -113,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // /auth/me 失败不阻断登录流程，登录响应本身已带 mustChangePassword
       setUser({ id: 0, username, mustChangePassword: mustChange })
     }
-    return { mustChangePassword: mustChange }
+    return { mustChangePassword: mustChange, defaultPasswordInUse: Boolean(res.defaultPasswordInUse) }
   }, [])
 
   const logout = useCallback(async () => {
@@ -129,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (oldPassword: string, newPassword: string) => {
       await authApi.changePassword(oldPassword, newPassword)
       setMustChangePassword(false)
+      setDefaultPasswordInUse(false)
       try {
         const me = await authApi.me()
         setUser(me)
@@ -154,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       isAuthenticated: Boolean(user) && Boolean(getAccessToken()),
       mustChangePassword,
+      defaultPasswordInUse,
       user,
       isBootstrapping,
       login,
@@ -161,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePassword,
       refreshUser,
     }),
-    [user, mustChangePassword, isBootstrapping, login, logout, changePassword, refreshUser],
+    [user, mustChangePassword, defaultPasswordInUse, isBootstrapping, login, logout, changePassword, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

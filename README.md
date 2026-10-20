@@ -53,15 +53,29 @@ cd dockermanage
 docker compose up -d
 ```
 
-访问 `http://<host>:8080`。首次启动会生成随机初始密码，**在容器日志里打印一次**：
+访问 `http://<host>:8080`，用默认凭据登录：
+
+| 用户名 | 密码 |
+|---|---|
+| `admin` | `admin` |
+
+登录后系统会**强制你立即改密**，改完才能进面板。
+
+想要更强的初始密码，在 `docker-compose.yml` 的环境变量里指定（仅首次启动生效）：
 
 ```bash
-docker compose logs panel | grep '初始管理员密码'
+# 方式一：指定你自己的初始密码
+PANEL_INITIAL_PASSWORD='Your-Strong-Pass' docker compose up -d
+
+# 方式二：生成 16 位随机密码，从日志里取
+PANEL_INITIAL_PASSWORD=random docker compose up -d
+docker compose logs panel | grep '初始'
 ```
 
-同时写入 `data/.password`（权限 0600）。登录后系统会强制你立即改密。
+初始密码同时写入 `data/.password`（权限 0600），改密后自动删除。
 
-> 首次启动后请立刻改密码。面板默认只监听 HTTP，**公网暴露请务必挂在反向代理后面并启用 TLS**。
+> ⚠️ **首次启动后请立刻改密码。** 面板默认只监听 HTTP，**公网暴露请务必挂在反向代理后面并启用 TLS**。
+> 面板以特权模式运行并挂载了 docker.sock，等同于宿主机 root 权限，不要直接暴露到公网。
 
 ### 本地开发
 

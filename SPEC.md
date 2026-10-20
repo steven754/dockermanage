@@ -245,7 +245,8 @@ backend/
 - `WS /api/v1/containers/:id/exec`（WebSocket）— exec 终端（双向）
 
 **鉴权**（单用户）：
-- 首次启动生成随机密码，写入 `/data/.password`，提示用户修改
+- 初始凭据：用户名固定 `admin`，初始密码默认 `admin`（与 Portainer 一致）；首启写入 `/data/.password` 并在日志打印一次，登录后强制改密
+- 需要更强默认值时用环境变量 `PANEL_INITIAL_PASSWORD` 覆盖，设为 `random` 则生成 16 位随机密码
 - `POST /api/v1/auth/login` 返回 HttpOnly cookie（JWT 或 session ID，v1.0 用 JWT 简化）
 - 后续请求带 `Authorization: Bearer <token>` 或 cookie
 
@@ -663,7 +664,7 @@ docker compose -f docker-compose.dev.yml up
 
 ### 12.3 首次启动
 1. 用户 `docker compose up -d`
-2. 容器生成随机密码写入 `/data/.password`，日志打印
+2. 容器写入初始密码（默认 `admin`）到 `/data/.password`，日志打印一次
 3. 用户访问 `http://host:8080`，强制修改密码
 4. 进入 Dashboard
 
@@ -739,7 +740,7 @@ docker compose -f docker-compose.dev.yml up
 | D-A3 | 容器内文件浏览器 | v1.0 **不做**，推 v1.1 | §3.2 |
 | D-A4 | 告警通知 webhook | v1.0 **不做**，推 v1.1；notify 表结构预留 | §3.2 / §9.1 |
 | D-A5 | TLS | v1.0 **不内置**，依赖反向代理（Caddy / Nginx） | §8.2 / §11 |
-| D-A6 | 首屏鉴权 | v1.0 **需要登录**，首启生成随机密码 + 强制改密 | §5.3 / §12.3 |
+| D-A6 | 首屏鉴权 | v1.0 **需要登录**；初始凭据 admin/admin（可用 `PANEL_INITIAL_PASSWORD` 覆盖）+ 强制改密 | §5.3 / §12.3 |
 | D-A7 | i18n | v1.0 **仅中文** | §11.2 前端 |
 | D-A8 | 多架构镜像 | **amd64 + arm64 双架构**，CI matrix build | §11.1 / §11.2 |
 | D-B1 | 容器运行模式 | 接受 `privileged: true` + 挂载 docker.sock；v1.2 升级 Docker Proxy | §8.1 / §11.3 |
@@ -781,7 +782,7 @@ docker compose -f docker-compose.dev.yml up
 - [ ] 本机 Node ≥ 20 / Go ≥ 1.22（开发环境）
 - [ ] `ui-mocks/` 4 屏设计稿已被前端实现直接采纳，不重新设计
 - [ ] §9.1 migration 已就绪（users / settings / system_stats / container_stats / events 五张表先行，notify / templates 预留）
-- [ ] 鉴权模块先落地（首启随机密码 → 强制改密 → JWT 双 token），再开其他接口
+- [ ] 鉴权模块先落地（首启初始密码 → 强制改密 → JWT 双 token），再开其他接口
 
 ---
 

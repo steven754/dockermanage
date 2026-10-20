@@ -12,6 +12,8 @@ type LoginResponse struct {
 	RefreshToken       string `json:"refreshToken"`
 	ExpiresIn          int64  `json:"expiresIn"`
 	MustChangePassword bool   `json:"mustChangePassword"`
+	// DefaultPasswordInUse 为 true 表示当前仍在使用默认初始密码，前端据此提示尽快修改
+	DefaultPasswordInUse bool `json:"defaultPasswordInUse"`
 }
 
 // ChangePasswordRequest 修改密码请求体

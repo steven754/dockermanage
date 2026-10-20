@@ -74,10 +74,15 @@ WS  /api/v1/containers/:id/exec?access_token=<JWT>
 {
   "accessToken": "eyJhbGciOi...",
   "refreshToken": "eyJhbGciOi...",
-  "expiresIn": 3600,          // access token 有效秒数
-  "mustChangePassword": true  // 首次启动生成的随机密码 → true
+  "expiresIn": 3600,               // access token 有效秒数
+  "mustChangePassword": true,      // 初始密码未改过 → true（强制改密）
+  "defaultPasswordInUse": true     // 同上，前端据此提示尽快修改
 }
 ```
+
+> **初始凭据**：用户名固定 `admin`，初始密码默认 `admin`（与 Portainer 一致），
+> 首次登录后系统强制要求改密。可用环境变量 `PANEL_INITIAL_PASSWORD` 覆盖，
+> 设为 `random` 则生成 16 位随机密码。
 
 ### POST /api/v1/auth/password
 

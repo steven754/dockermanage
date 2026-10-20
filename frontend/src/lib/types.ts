@@ -15,8 +15,10 @@ export interface LoginResponse {
   refreshToken: string
   /** access token 有效秒数 */
   expiresIn: number
-  /** 首次启动生成的随机密码 → true，需强制改密 */
+  /** 仍在使用首启初始密码 → true，需强制改密 */
   mustChangePassword: boolean
+  /** 仍在使用首启初始密码 → true，前端据此提示尽快修改 */
+  defaultPasswordInUse: boolean
 }
 
 /** GET /auth/me 响应 */
