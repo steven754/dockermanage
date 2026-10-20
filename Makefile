@@ -2,7 +2,8 @@
 SHELL := /bin/bash
 BACKEND := backend
 FRONTEND := frontend
-IMAGE ?= ghcr.io/steven754/dockermanage
+IMAGE ?= stevensign/dockermanage
+SOURCE_IMAGE ?= ghcr.io/steven754/dockermanage
 TAG ?= latest
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -92,6 +93,11 @@ docker-build: ## 构建单架构镜像（当前平台）
 
 .PHONY: docker-release
 docker-release: ## 构建并推送 amd64 + arm64 双架构镜像
+	@# 注意：在 Apple Silicon 上交叉构建 amd64 依赖 QEMU 模拟。
+	@# Docker Desktop 自带的 QEMU 版本较旧时，Go 工具链会在 netpoll 处触发
+	@# SIGSEGV（表现为 `go mod download` 退出码 2）。两种绕开方式：
+	@#   1) 升级 QEMU（brew install qemu + 更新 binfmt 注册）
+	@#   2) 直接复用已构建好的多架构镜像（见 docker-mirror 目标）
 	docker buildx create --use --name dockermanage-builder 2>/dev/null || true
 	docker buildx build \
 	  --platform linux/amd64,linux/arm64 \
@@ -101,6 +107,12 @@ docker-release: ## 构建并推送 amd64 + arm64 双架构镜像
 	  -t $(IMAGE):$(TAG) \
 	  $(if $(TAG != latest),-t $(IMAGE):$(TAG),) \
 	  --push .
+
+.PHONY: docker-mirror
+docker-mirror: ## 把已构建好的多架构镜像从一个仓库复制到另一个（跨仓库搬运清单）
+	docker buildx imagetools create \
+	  -t $(IMAGE):$(TAG) \
+	  $(SOURCE_IMAGE):$(TAG)
 
 .PHONY: docker-up
 docker-up: ## 启动本机 compose 栈

@@ -1,6 +1,6 @@
 services:
   panel:
-    image: ghcr.io/steven754/dockermanage:latest
+    image: stevensign/dockermanage:latest
     container_name: dockermanage
     restart: unless-stopped
 

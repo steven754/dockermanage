@@ -53,6 +53,19 @@ cd dockermanage
 docker compose up -d
 ```
 
+或直接用镜像（amd64 / arm64 双架构）：
+
+```bash
+docker run -d --name dockermanage -p 8080:8080 \
+  --privileged \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/data:/data -v $(pwd)/compose:/compose \
+  stevensign/dockermanage:latest
+```
+
+> 镜像同时发布在 Docker Hub（`stevensign/dockermanage`）与 GitHub Container Registry
+> （`ghcr.io/steven754/dockermanage`），两者内容一致。
+
 访问 `http://<host>:8080`，用默认凭据登录：
 
 | 用户名 | 密码 |
