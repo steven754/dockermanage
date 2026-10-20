@@ -28,9 +28,10 @@ tmp/
 *.key
 
 # 运行时数据（compose 部署产生）
-data/
-compose/
-!compose/.gitkeep
+# 注意：用 /data/ + /compose/* 形式，才能让 !compose/.gitkeep 反选生效
+/data/
+/compose/*
+!/compose/.gitkeep
 
 # IDE
 .idea/
