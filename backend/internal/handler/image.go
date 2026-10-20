@@ -65,7 +65,7 @@ func (h *Handler) TagImage(w http.ResponseWriter, r *http.Request) {
 
 // DeleteImage 处理 DELETE /api/v1/images/:id
 func (h *Handler) DeleteImage(w http.ResponseWriter, r *http.Request) {
-	id := chiURLParam(r, "id")
+	id := chiWildcardParam(r)
 	force := queryBool(r, "force")
 	logInput(r, "imageId", id, "force", force)
 

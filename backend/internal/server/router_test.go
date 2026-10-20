@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/steven754/dockermanage/backend/internal/db"
 	"github.com/steven754/dockermanage/backend/internal/handler"
 	"github.com/steven754/dockermanage/backend/internal/repo"
@@ -300,5 +302,23 @@ func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, want string) 
 	}
 	if resp.Error.Message == "" {
 		t.Fatal("错误信息不应为空")
+	}
+}
+
+// TestWildcardRouteCapturesSlashes 验证镜像 / 网络删除接口能捕获带斜杠的引用
+func TestWildcardRouteCapturesSlashes(t *testing.T) {
+	r := chi.NewRouter()
+
+	var got string
+	r.With(func(next http.Handler) http.Handler { return next }).
+		Method(http.MethodDelete, "/api/v1/images/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			got = chi.URLParam(req, "*")
+		}))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/dmtest/hello:v1", nil)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	if got != "dmtest/hello:v1" {
+		t.Fatalf("通配路由未捕获完整引用，实际 %q", got)
 	}
 }

@@ -53,7 +53,7 @@ test: test-backend test-frontend ## 跑全部测试
 
 .PHONY: test-backend
 test-backend: ## 后端单测
-	cd $(BACKEND) && go test -race -coverprofile=coverage.out ./...
+	cd $(BACKEND) && GOTOOLCHAIN=local go test -race -coverprofile=coverage.out ./...
 
 .PHONY: test-frontend
 test-frontend: ## 前端类型检查 + 构建
@@ -64,7 +64,7 @@ lint: lint-backend lint-frontend ## 跑全部 lint
 
 .PHONY: lint-backend
 lint-backend: ## go vet + gofmt 检查
-	cd $(BACKEND) && go vet ./... && test -z "$$(gofmt -l .)" || (gofmt -l . && echo "↑ 需 gofmt" && exit 1)
+	cd $(BACKEND) && GOTOOLCHAIN=local go vet ./... && test -z "$$(gofmt -l .)" || (gofmt -l . && echo "↑ 需 gofmt" && exit 1)
 
 .PHONY: lint-frontend
 lint-frontend: ## eslint
@@ -73,6 +73,13 @@ lint-frontend: ## eslint
 .PHONY: fmt
 fmt: ## 格式化 Go 代码
 	cd $(BACKEND) && gofmt -w .
+
+.PHONY: tidy
+tidy: ## 整理后端依赖
+	@# 必须带 -go=1.24：docker 依赖是无 go.mod 的 +incompatible 模块，不施加任何版本约束，
+	@# 不加约束时 tidy 会把 otel / x/* 拉到要求 Go 1.26 的版本，并顺带把 go 指令顶上去。
+	cd $(BACKEND) && GOTOOLCHAIN=local go mod tidy -go=1.24 && GOTOOLCHAIN=local go mod verify
+	@echo "✓ 依赖已整理并校验（Go 1.24 基线）"
 
 # ---------------------------------------------------------------- Docker
 .PHONY: docker-build

@@ -154,8 +154,20 @@
 
 **决策 D6（2026-10-20 实现期确认）：Compose 操作调用 `docker compose` CLI**
 - 理由：Docker Compose v2 的项目/网络/卷生命周期语义复杂，自己用 SDK 重新实现易出偏差；直接调用官方 CLI 行为最一致
-- 代价：运行时镜像需额外装 `docker-cli` + `docker-cli-compose`（alpine 包），镜像增大约 20MB
+- 代价：运行时镜像需额外装 `docker-cli` + `docker-cli-compose`（alpine 包），镜像增大约 45MB
 - 备选方案：compose-go 库（纯 Go，无需 CLI）—— 依赖体积大、v2 schema 演进频繁，暂不采用
+- 实现注意：compose v2.27+ 的 `ps --format json` 中 `Name` 是**容器名**、`Service` 才是**服务名**，解析时以 `Service` 优先
+
+**决策 D7（2026-10-20 实现期确认）：依赖版本必须显式钉在 Go 1.24 基线**
+- 理由：`github.com/docker/docker` 是 `+incompatible` 模块（自身无 go.mod），**不施加任何版本约束**。直接跑 `go mod tidy` 会把 otel / golang.org/x/* 拉到要求 Go 1.26 的版本，并顺带把 `go` 指令顶到 1.26 —— 与构建镜像 `golang:1.24-alpine` 冲突
+- 落地：go.mod 固定 `go 1.24` 并显式钉住全部间接依赖；`make tidy` 强制带 `-go=1.24` 与 `GOTOOLCHAIN=local`；构建阶段设 `GOTOOLCHAIN=local` 防止容器内自动拉取工具链
+- 教训：`GOTOOLCHAIN=auto`（默认）会在本机静默下载并切换到新版工具链，进而改变依赖解析结果
+
+**决策 D8（2026-10-20 实现期确认）：镜像 / 网络删除路由使用通配匹配**
+- 理由：镜像引用可能带斜杠（`myrepo/nginx:1.27`），chi 按 `/` 分段路由，`:id` 参数匹配不到跨段路径；正则参数 `{id:.*}` 在 chi 中同样不跨段
+- 落地：`DELETE /api/v1/images/*` 与 `/api/v1/networks/*`，handler 读取 `chi.URLParam(r, "*")`
+- 影响：路径形状不变（仍是 `/api/v1/images/{id}`），只是匹配放宽
+
 
 ---
 
@@ -738,7 +750,20 @@ docker compose -f docker-compose.dev.yml up
 | D-C3 | 事件保留期 | **7 天**，凌晨定时清理 | §9.2 |
 | D-C4 | 默认端口与目录 | **8080**；`/data` + `/compose` 相对路径挂载 | §11.3 |
 
-> 以上 14 项为 2026-10-20 用户拍板结论，后续实现以本表为准。如需变更，请在附录 B 记录并同步修改相关章节。
+**实现期追加决策（2026-10-20 编码落地后确认）**
+
+| # | 议题 | 决策 | 影响章节 |
+|---|---|---|---|
+| D-E1 | 依赖版本基线 | 钉在 **Go 1.24**，docker 依赖为 +incompatible 需显式钉版本；`make tidy` 带 `-go=1.24` | §4.3 D7 |
+| D-E2 | 镜像/网络删除路由 | 改用**通配匹配**，支持带斜杠的引用名 | §4.3 D8 / §6.1 |
+| D-E3 | 流式端点鉴权 | 额外支持 `?access_token=`（浏览器 EventSource / WebSocket 无法设请求头） | §6 / 契约文档 §0.1 |
+| D-E4 | 日志流格式 | 非 TTY 容器日志带 8 字节多路复用帧头，后端**解包后输出纯文本**；TTY 容器原样透传 | §6.1 |
+| D-E5 | 错误文案 | 中文主句 + Docker 原文作为细节，便于用户定位 | §6.2 |
+| D-E6 | 磁盘挂载点 | 用 `/`（宿主机视角的 `/var/lib/docker` 在面板容器内通常不可见） | §2 / §5.3 |
+| D-E7 | 容器实时字段 | 来自采样器缓存，列表接口带 2s 缓存，写操作后失效；可能为 null | §6.1 |
+
+> 14 项用户拍板决策 + 7 项实现期追加决策 = 21 项，均以本表与 §4.3 为准。
+
 
 ---
 

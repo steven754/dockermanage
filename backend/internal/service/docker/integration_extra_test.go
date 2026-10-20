@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	dockerevents "github.com/docker/docker/api/types/events"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 
@@ -133,31 +134,87 @@ func TestLiveContainerExec(t *testing.T) {
 	}
 }
 
+// localUnusedImage 找一个没有被容器使用的本地镜像，便于测试打标签 / 删除镜像
+func localUnusedImage(t *testing.T, cli *docker.Client) string {
+	t.Helper()
+
+	ctx := context.Background()
+	images, err := cli.Raw().ImageList(ctx, image.ListOptions{All: false})
+	if err != nil {
+		t.Skipf("列出镜像失败，跳过: %v", err)
+	}
+	containers, err := cli.Raw().ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		t.Skipf("列出容器失败，跳过: %v", err)
+	}
+
+	used := map[string]bool{}
+	for _, c := range containers {
+		used[c.ImageID] = true
+	}
+
+	for _, img := range images {
+		if used[img.ID] {
+			continue
+		}
+		for _, tag := range img.RepoTags {
+			if tag != "" && tag != "<none>:<none>" {
+				return tag
+			}
+		}
+	}
+	t.Skip("本地没有未被容器占用的镜像，跳过")
+	return ""
+}
+
 func TestLiveImageTagAndRemove(t *testing.T) {
 	cli := liveClient(t)
 	svc := docker.NewImageService(cli)
 	ctx := context.Background()
 
-	image := localImage(t, cli)
+	image := localUnusedImage(t, cli)
 	tagValue := fmt.Sprintf("%d", time.Now().UnixNano())
+	tagged := "dockermanage-selftest:" + tagValue
+
+	// 兜底清理，避免测试残留标签
+	t.Cleanup(func() {
+		_ = svc.Remove(context.Background(), tagged, true)
+	})
 
 	if err := svc.Tag(ctx, image, "dockermanage-selftest", tagValue); err != nil {
 		t.Skipf("打标签失败（镜像 %s 可能为多架构清单），跳过: %v", image, err)
 	}
 
-	// 删除刚打的标签
-	if err := svc.Remove(ctx, "dockermanage-selftest:"+tagValue, true); err != nil {
-		t.Fatalf("删除标签镜像失败: %v", err)
-	}
-
-	// 标签应已消失
+	// 新标签应出现在镜像列表中
+	found := false
 	images, err := svc.List(ctx)
 	if err != nil {
 		t.Fatalf("列出镜像失败: %v", err)
 	}
 	for _, img := range images {
 		for _, tag := range img.RepoTags {
-			if tag == "dockermanage-selftest:"+tagValue {
+			if tag == tagged {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("新打的标签未出现在镜像列表中")
+	}
+
+	// 删除该标签
+	if err := svc.Remove(ctx, tagged, true); err != nil {
+		t.Fatalf("删除标签镜像失败: %v", err)
+	}
+
+	// 标签应已消失
+	images, err = svc.List(ctx)
+	if err != nil {
+		t.Fatalf("列出镜像失败: %v", err)
+	}
+	for _, img := range images {
+		for _, tag := range img.RepoTags {
+			if tag == tagged {
 				t.Fatalf("标签 %s 未被删除", tag)
 			}
 		}
