@@ -95,7 +95,13 @@ func (s *ImageService) Tag(ctx context.Context, id, repo, tag string) error {
 		return errInvalidTag
 	}
 	target := repo + ":" + tag
-	if err := s.cli.Raw().ImageTag(ctx, id, target); err != nil {
+
+	// 打标签接口按路径解析镜像名，含斜杠的名称需先解析成 ID
+	source, err := s.resolveID(ctx, id)
+	if err != nil {
+		return dockerErrorf("读取镜像信息失败", err)
+	}
+	if err := s.cli.Raw().ImageTag(ctx, source, target); err != nil {
 		return dockerErrorf("打标签失败", err)
 	}
 	return nil
@@ -103,10 +109,24 @@ func (s *ImageService) Tag(ctx context.Context, id, repo, tag string) error {
 
 // Remove 删除镜像
 func (s *ImageService) Remove(ctx context.Context, id string, force bool) error {
+	// 删除接口同样只接受 ID，名称需先解析
+	resolved, err := s.resolveID(ctx, id)
+	if err == nil {
+		id = resolved
+	}
 	if _, err := s.cli.Raw().ImageRemove(ctx, id, image.RemoveOptions{Force: force, PruneChildren: false}); err != nil {
 		return dockerErrorf("删除镜像失败", err)
 	}
 	return nil
+}
+
+// resolveID 把镜像引用解析为镜像 ID
+func (s *ImageService) resolveID(ctx context.Context, ref string) (string, error) {
+	inspect, _, err := s.cli.Raw().ImageInspectWithRaw(ctx, ref)
+	if err != nil {
+		return "", err
+	}
+	return inspect.ID, nil
 }
 
 // Prune 清理无用镜像
