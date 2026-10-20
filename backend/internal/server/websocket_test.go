@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -187,8 +188,34 @@ func startTestContainer(t *testing.T, cli *docker.Client, prefix, script string)
 	if err := cli.Raw().ContainerStart(context.Background(), id, container.StartOptions{}); err != nil {
 		t.Fatalf("启动测试容器失败: %v", err)
 	}
-	time.Sleep(600 * time.Millisecond)
 	return id
+}
+
+// waitContainerLog 轮询等待容器日志中出现期望内容。
+//
+// 不用固定 sleep：持续集成环境负载高时容器 stdout 的 flush 会被延迟，
+// 固定等待会导致连上 WebSocket 时日志还是空的。
+func waitContainerLog(t *testing.T, cli *docker.Client, id string, want string) {
+	t.Helper()
+
+	ctx := context.Background()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		rc, err := cli.Raw().ContainerLogs(ctx, id, container.LogsOptions{
+			ShowStdout: true, ShowStderr: true, Tail: "50",
+		})
+		if err == nil {
+			data, _ := io.ReadAll(rc)
+			_ = rc.Close()
+			if strings.Contains(string(data), want) {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("等待容器日志超时（期望包含 %q）", want)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 // TestWebSocketContainerLogs 端到端验证容器日志 WebSocket
@@ -196,6 +223,7 @@ func TestWebSocketContainerLogs(t *testing.T) {
 	env, cli := newLiveEnv(t)
 
 	id := startTestContainer(t, cli, "dm-ws-log", "echo hello-ws; sleep 300")
+	waitContainerLog(t, cli, id, "hello-ws")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

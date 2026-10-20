@@ -44,35 +44,53 @@ func startEchoContainer(t *testing.T, cli *docker.Client) (string, string) {
 	if err := cli.Raw().ContainerStart(ctx, id, container.StartOptions{}); err != nil {
 		t.Fatalf("启动测试容器失败: %v", err)
 	}
-	// 等待日志产生
-	time.Sleep(500 * time.Millisecond)
 	return id, name
+}
+
+// echoMarker 测试容器打印的标记文本
+const echoMarker = "hello-from-dockermanage"
+
+// waitForLog 轮询等待容器日志中出现期望内容。
+//
+// 不能用固定 sleep：持续集成环境负载高时，容器 stdout 的 flush 会被延迟，
+// 固定等待会导致日志为空而误判失败。
+func waitForLog(t *testing.T, svc *docker.ContainerService, id string, want string) string {
+	t.Helper()
+
+	ctx := context.Background()
+	deadline := time.Now().Add(20 * time.Second)
+	var last string
+
+	for {
+		rc, err := svc.Logs(ctx, id, docker.LogOptions{Tail: "50", Timestamps: true, Follow: false})
+		if err != nil {
+			t.Fatalf("读取日志失败: %v", err)
+		}
+		data, _ := io.ReadAll(bufio.NewReader(rc))
+		_ = rc.Close()
+
+		last = string(data)
+		if strings.Contains(last, want) {
+			return last
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("等待日志内容超时（期望包含 %q），实际读到 %q", want, last)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 func TestLiveContainerLogs(t *testing.T) {
 	cli := liveClient(t)
 	svc := docker.NewContainerService(cli)
-	ctx := context.Background()
 
 	id, _ := startEchoContainer(t, cli)
 
-	rc, err := svc.Logs(ctx, id, docker.LogOptions{Tail: "50", Timestamps: true, Follow: false})
-	if err != nil {
-		t.Fatalf("读取日志失败: %v", err)
-	}
-	defer func() { _ = rc.Close() }()
-
-	data, err := io.ReadAll(bufio.NewReader(rc))
-	if err != nil && len(data) == 0 {
-		t.Fatalf("读取日志内容失败: %v", err)
-	}
-	if len(data) == 0 {
+	content := waitForLog(t, svc, id, echoMarker)
+	if len(content) == 0 {
 		t.Fatal("日志内容不应为空")
 	}
-	if !strings.Contains(string(data), "hello-from-dockermanage") {
-		t.Fatalf("日志内容不符合预期: %q", string(data))
-	}
-	t.Logf("读到 %d 字节日志", len(data))
+	t.Logf("读到 %d 字节日志", len(content))
 }
 
 func TestLiveContainerExec(t *testing.T) {
