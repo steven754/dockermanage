@@ -15,6 +15,21 @@
 - 除 `/api/v1/auth/login`、`/api/v1/version`、`/healthz`、`/readyz` 外全部需要鉴权
 - 401 一律返回 `{"error":{"code":"UNAUTHORIZED","message":"..."}}`
 
+**流式端点的鉴权例外（SSE / WebSocket）**
+
+浏览器的 `EventSource` 与 `WebSocket` API **无法设置自定义请求头**，因此流式端点额外接受查询参数携带令牌：
+
+```
+GET /api/v1/stats/stream?access_token=<JWT>
+GET /api/v1/events/stream?access_token=<JWT>
+WS  /api/v1/containers/:id/logs?access_token=<JWT>
+WS  /api/v1/containers/:id/exec?access_token=<JWT>
+```
+
+- 参数名 **`access_token`**（前端约定），后端同时兼容别名 `token`
+- 优先级：`Authorization` 头 > `?access_token` > `?token`
+- 非流式 REST 接口一律走 `Authorization` 头，不接受查询参数
+
 ### 0.2 错误格式
 
 ```json

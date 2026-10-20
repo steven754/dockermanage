@@ -11,6 +11,7 @@ vendor/
 # 构建产物
 dist/
 build/
+/backend/bin/
 *.exe
 *.dylib
 *.so
