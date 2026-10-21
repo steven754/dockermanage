@@ -657,10 +657,13 @@ npm install
 npm run dev  # 默认 http://localhost:5173，proxy /api 到 :8080
 ```
 
-### 12.2 Docker 内开发
+### 12.2 本地开发
 ```bash
-docker compose -f docker-compose.dev.yml up
+make dev-backend    # 后端 → :8080
+make dev-frontend   # 前端 → :5173（/api 代理到 :8080）
 ```
+> 开发期不容器化：前端 vite dev server 直接代理到本地后端，调试更方便。
+> 容器化开发环境（挂载源码 + 热重载）暂未提供。
 
 ### 12.3 首次启动
 1. 用户 `docker compose up -d`

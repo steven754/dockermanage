@@ -1,6 +1,8 @@
 services:
   panel:
-    image: stevensign/dockermanage:latest
+    # 生产环境建议钉死版本号，避免某次 pull 静默换掉版本：
+    #   PANEL_IMAGE=stevensign/dockermanage:v0.1.0 docker compose up -d
+    image: "${PANEL_IMAGE:-stevensign/dockermanage:latest}"
     container_name: dockermanage
     restart: unless-stopped
 
@@ -48,7 +50,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-    # macOS Docker Desktop 路径权限：让容器内 panel 用户能写 /data
-    # （Linux 部署可删除这段）
-    # user: "1000:1000"

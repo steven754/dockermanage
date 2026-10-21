@@ -30,6 +30,7 @@
 ## 文档
 
 - **[SPEC.md](./SPEC.md)** — 技术规格说明书：功能范围、架构、模块划分、REST/SSE/WebSocket API、SQLite 表结构、安全模型、部署方案、路线图
+- **[docs/compose-deploy.md](./docs/compose-deploy.md)** — **Docker Compose 部署教程**：编排文件逐段解读、日常运维、数据持久化与备份、反向代理、故障排查
 - **[docs/api-contract.md](./docs/api-contract.md)** — API 契约：各接口请求体/响应体的确切 JSON 形状、流式协议帧格式
 - **[ui-mocks/README.md](./ui-mocks/README.md)** — UI 设计说明：设计 token、组件规范、渲染自检记录
 
@@ -54,10 +55,14 @@ cd ui-mocks && ./.shoot.sh 1440 900
 
 ### 容器部署（推荐）
 
+📖 **完整的 Compose 部署教程**（编排文件解读、运维命令、持久化、反向代理、故障排查）见
+**[docs/compose-deploy.md](./docs/compose-deploy.md)**
+
 ```bash
 git clone https://github.com/steven754/dockermanage.git
 cd dockermanage
 docker compose up -d
+docker compose ps        # 应显示 healthy
 ```
 
 或直接用镜像（amd64 / arm64 双架构）：

@@ -61,11 +61,14 @@ FROM alpine:3.20
 # ca-certificates：拉取镜像 / webhook 通知需要
 # tzdata：容器时区
 # docker-cli + docker-cli-compose：Compose 项目 up/down/ps 需要调用 docker compose CLI
+# sqlite：在线备份数据库。SQLite 处于 WAL 模式，库里数据大部分在 -wal 文件里，
+#        直接拷贝 .db 文件会拿到未合并事务的不一致副本
 RUN apk add --no-cache \
       ca-certificates \
       tzdata \
       docker-cli \
       docker-cli-compose \
+      sqlite \
       curl \
       && rm -rf /var/cache/apk/*
 
