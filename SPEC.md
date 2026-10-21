@@ -768,8 +768,9 @@ docker compose -f docker-compose.dev.yml up
 | D-E11 | 代理头采信收紧 | **默认不采信** `X-Forwarded-For` / `X-Real-IP`，一律用 `RemoteAddr`；仅当 `PANEL_TRUST_PROXY=true`（确认部署在反代之后）才采信，防止伪造头绕过登录限流 | §8.2 |
 | D-E12 | WebSocket Origin 校验 | 握手时校验 Origin 主机与请求 Host 一致，跨站握手被拒 | §8.2 |
 | D-E13 | 登录限流阈值可配 | 容器化部署时所有请求来源地址相同，限流实际是全局的；阈值由 `PANEL_LOGIN_RATE_LIMIT` 控制（默认 10/分钟） | §8.2 |
+| D-E14 | 初始密码仅首启生效 | `PANEL_INITIAL_PASSWORD` 只在数据库无用户时写入一次；此后改该变量或重启均不影响已有部署，改密只能走设置页。避免误以为它是「改密码开关」 | §5.3 / README |
 
-> 14 项用户拍板决策 + 13 项实现期追加决策 = 27 项，均以本表与 §4.3 为准。
+> 14 项用户拍板决策 + 14 项实现期追加决策 = 28 项，均以本表与 §4.3 为准。
 >
 > D-E8 ~ D-E12 来自 2026-10-20 的安全增量扫描（5 条 finding 全部处理）。
 

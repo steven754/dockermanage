@@ -81,26 +81,36 @@ docker run -d --name dockermanage -p 8080:8080 \
 
 登录后系统会**强制你立即改密**，改完才能进面板。
 
-想要更强的初始密码，在 `docker-compose.yml` 的环境变量里指定（仅首次启动生效）：
+### 初始密码：默认值只是一个兜底
+
+`admin` / `admin` 是**首次启动**时的兜底默认值（编排文件里写的是 `${PANEL_INITIAL_PASSWORD:-admin}`），
+你可以**在第一次启动前**就把它换掉：
 
 ```bash
-# 方式一：指定你自己的初始密码
-PANEL_INITIAL_PASSWORD='Your-Strong-Pass' docker compose up -d
+# 方式一：第一次启动前就指定强密码，全程不出现弱默认
+PANEL_INITIAL_PASSWORD='你的强密码' docker compose up -d
 
-# 方式二：生成 16 位随机密码，从日志里取
+# 方式二：让它生成 16 位随机密码，从日志里取
 PANEL_INITIAL_PASSWORD=random docker compose up -d
 docker compose logs panel | grep '初始'
 ```
 
-初始密码同时写入 `data/.password`（权限 0600），改密后自动删除。
+**为什么值得多这一步**：面板以特权模式运行并挂载了 docker.sock，权限等同宿主机 root。
+从容器启动到你改完密码这段时间里，默认凭据是全网已知的 —— 公网机器上这个窗口是真实风险。
+指定初始密码能让这个窗口直接不存在。
 
-其他可调环境变量：
+**注意语义**：`PANEL_INITIAL_PASSWORD` **只在首次启动（数据库里还没有用户）时生效一次**。
+之后再改这个变量、哪怕删了 `data/` 之外的任何配置，都不会影响已有部署 —— 想改密码只能登录后去设置页改。
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `PANEL_INITIAL_PASSWORD` | `admin` | 首启初始密码，`random` 表示生成 16 位随机密码 |
-| `PANEL_TRUST_PROXY` | `false` | 是否采信 `X-Forwarded-For`；**仅在面板确实部署在反向代理之后时开启**，否则登录限流可被伪造头绕过 |
-| `PANEL_LOGIN_RATE_LIMIT` | `10` | 每分钟允许的登录尝试次数。容器化部署时所有请求来源地址相同，该阈值实际是全局的 |
+初始密码同时写入 `data/.password`（权限 0600），**改密后该文件自动删除**。
+
+### 可调环境变量
+
+| 变量 | 默认 | 生效时机 | 说明 |
+|---|---|---|---|
+| `PANEL_INITIAL_PASSWORD` | `admin` | **仅首次启动一次** | 首启初始密码；`random` 表示生成 16 位随机密码 |
+| `PANEL_TRUST_PROXY` | `false` | 重启即生效 | 是否采信 `X-Forwarded-For`；**仅在面板确实部署在反向代理之后时开启**，否则登录限流可被伪造头绕过 |
+| `PANEL_LOGIN_RATE_LIMIT` | `10` | 重启即生效 | 每分钟允许的登录尝试次数。容器化部署时所有请求来源地址相同，该阈值实际是全局的 |
 
 > ⚠️ **首次启动后请立刻改密码。** 面板默认只监听 HTTP，**公网暴露请务必挂在反向代理后面并启用 TLS**。
 > 面板以特权模式运行并挂载了 docker.sock，等同于宿主机 root 权限，不要直接暴露到公网。
