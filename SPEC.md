@@ -1,10 +1,10 @@
 # Docker 管理面板 · 技术规格说明书（SPEC）
 
-> 版本：v1.0
-> 最后更新：2026-10-20
-> 状态：**已定稿**（功能范围 / 技术栈 / 14 项关键决策已拍板；待 UI 稿与全文验收）
-> 作者：Mavis（root session） + worker（UI 稿并行产出）
-> 决策记录：§15.2 · UI 设计稿：`ui-mocks/`
+> 版本：v1.0（实现完成）
+> 最后更新：2026-10-21
+> 状态：**已实现并发布** — 前后端均已落地，v0.1.0 镜像已发布至 Docker Hub 与 GHCR
+> 作者：Mavis（root session） + worker（前后端并行实现）
+> 决策记录：§15.2 · UI 设计稿：`ui-mocks/` · API 契约：`docs/api-contract.md`
 
 ---
 
@@ -781,17 +781,22 @@ docker compose -f docker-compose.dev.yml up
 - [x] 用户拍板第 3 节功能范围（2026-10-20）
 - [x] 用户拍板第 4.2 节技术栈 — Go + React + shadcn/ui（2026-10-16）
 - [x] 用户拍板第 15.2 节 14 项决策（2026-10-20）
-- [ ] 用户验收 UI 稿（4 个屏幕视觉与设计方向）— `ui-mocks/index.html`
-- [ ] 用户验收本文档全文
+- [x] 用户拍板第 15.2 节 13 项实现期追加决策（2026-10-20）
+- [x] UI 稿 4 屏被前端实现直接采纳
+- [x] 端到端联调 31 项检查全过
+- [x] 安全增量扫描 5 条 finding 全部修复并复验
+- [x] 容器化部署验证：镜像实拉实跑，compose 一键起
+- [x] 镜像发布：amd64 + arm64 双架构，Docker Hub 与 GHCR 同步
+- [x] 持续集成三项全绿（前端 / 后端 / 双架构镜像构建）
 
-### 16.1 开工前置检查（开发启动前逐条确认）
+### 16.1 开工前置检查（已于 2026-10-20 全部确认）
 
-- [ ] Docker Engine 版本 ≥ 20.10 且 `docker.sock` 可访问
-- [ ] 本机 Node ≥ 20 / Go ≥ 1.22（开发环境）
-- [ ] `ui-mocks/` 4 屏设计稿已被前端实现直接采纳，不重新设计
-- [ ] §9.1 migration 已就绪（users / settings / system_stats / container_stats / events 五张表先行，notify / templates 预留）
-- [ ] 鉴权模块先落地（首启初始密码 → 强制改密 → JWT 双 token），再开其他接口
-- [ ] **强制改密由后端强制执行**（中间件拦截 + 令牌版本自增），不依赖前端跳转
+- [x] Docker Engine 版本 ≥ 20.10 且 `docker.sock` 可访问
+- [x] 本机 Node ≥ 20 / Go ≥ 1.24（开发环境）
+- [x] `ui-mocks/` 4 屏设计稿已被前端实现直接采纳，不重新设计
+- [x] §9.1 migration 已就绪（users / settings / system_stats / container_stats / events 五张表先行，notify / templates 预留）；另加 002 令牌版本列
+- [x] 鉴权模块已落地（首启初始密码 → 强制改密 → JWT 双 token）
+- [x] **强制改密由后端强制执行**（中间件拦截 + 令牌版本自增），不依赖前端跳转
 
 ---
 
@@ -810,3 +815,5 @@ docker compose -f docker-compose.dev.yml up
 |---|---|---|---|
 | 2026-10-16 | v1.0-draft | Mavis | 初版草案 |
 | 2026-10-20 | v1.0 | Mavis | 用户拍板 A/B/C 三组共 14 项决策（§15.2），文档定稿；P1 范围与 v1.0/v1.1 路线图按决策重排；修正 §1.2 目标用户表述与 §16 章节引用笔误；新增 §16.1 开工前置检查；UI 稿完成 4 屏无头 Chrome 渲染自检，修复 ⌘K 遮罩/搜索框竖排/窄屏侧栏 3 个布局 bug（详见 `ui-mocks/README.md`） |
+| 2026-10-20 | v1.0 | Mavis | 前后端实现完成并通过端到端联调；安全增量扫描 5 条 finding 全部修复（强制改密后端强制、令牌版本失效、代理头收紧、WebSocket 来源校验、查询参数令牌限流式端点）；镜像发布至 Docker Hub 与 GHCR（amd64 + arm64 双架构） |
+| 2026-10-21 | v1.0 | Mavis | 同步 README 与本文档的落地状态：验收清单全部勾选、补充已知限制与 v1.1 计划 |

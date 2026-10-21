@@ -2,7 +2,7 @@
 
 > 一款通过单个 `docker-compose` 部署的 Docker 可视化管理面板 —— 个人/家庭自用场景下 Portainer 的现代化替代品。
 
-**技术栈**：Go 1.22（chi + docker SDK + SQLite/WAL） · React 18 + TypeScript + Vite · Tailwind CSS + shadcn/ui · xterm.js
+**技术栈**：Go 1.24（chi v5 + docker SDK v27 + modernc SQLite/WAL 纯 Go 驱动） · React 18 + TypeScript + Vite 5 · Tailwind CSS 3.4 + shadcn/ui · xterm.js
 
 ---
 
@@ -12,13 +12,20 @@
 |---|---|---|
 | 需求与范围梳理 | ✅ 完成 | [SPEC.md](./SPEC.md) §1-§3 |
 | 技术方案（架构 / API / 数据模型 / 部署） | ✅ 完成 | [SPEC.md](./SPEC.md) §4-§13 |
-| 14 项关键决策拍板 | ✅ 完成 | [SPEC.md](./SPEC.md) §15.2 |
+| 27 项关键决策拍板 | ✅ 完成 | [SPEC.md](./SPEC.md) §15.2 |
 | UI 设计稿（4 屏） | ✅ 完成 | [ui-mocks/](./ui-mocks/) |
 | 工程基线（Dockerfile / compose / CI / Makefile） | ✅ 完成 | [Dockerfile](./Dockerfile) · [docker-compose.yml](./docker-compose.yml) |
-| 后端实现（Go，81 文件 / 10.6k 行） | ✅ 完成 | [backend/](./backend/) |
-| 前端实现（React，68 源文件 / 9.5k 行） | ✅ 完成 | [frontend/](./frontend/) |
-| 端到端联调（28 项检查全过） | ✅ 完成 | 静态检查 / 鉴权流程 / 8 个核心接口 / SSE / SPA 回退 |
-| 容器化部署验证 | 🔄 验证中 | `make docker-build` |
+| 后端实现（Go，81 文件 / 11.2k 行） | ✅ 完成 | [backend/](./backend/) |
+| 前端实现（React，68 源文件 / 9.6k 行） | ✅ 完成 | [frontend/](./frontend/) |
+| 端到端联调（31 项检查全过） | ✅ 完成 | 静态检查 / 鉴权流程 / 8 个核心接口 / SSE / SPA 回退 |
+| 安全增量扫描与加固（5 条 finding 全修） | ✅ 完成 | 强制改密后端强制 / 令牌版本失效 / 代理头收紧 / WS Origin 校验 |
+| 容器化部署验证 | ✅ 完成 | 镜像实拉实跑，docker compose 一键起 |
+| 镜像发布（amd64 + arm64 双架构） | ✅ 完成 | `stevensign/dockermanage` · `ghcr.io/steven754/dockermanage` |
+| 持续集成 | ✅ 全绿 | 前端 / 后端 / 双架构镜像构建 三项通过 |
+
+### 当前版本
+
+`v0.1.0` · 2026-10-20 · 面板默认凭据 `admin` / `admin`（登录后强制改密）
 
 ## 文档
 
@@ -112,18 +119,31 @@ make dev-frontend     # 前端 → :5173（/api 代理到 :8080）
 ### 常用命令
 
 ```bash
-make help          # 列出全部命令
-make test          # 后端竞态测试 + 前端构建
-make lint          # go vet + gofmt + eslint
-make docker-build  # 构建本机架构镜像
-make docker-release# 构建并推送 amd64 + arm64 双架构镜像
+make help           # 列出全部命令
+make test           # 后端竞态测试 + 前端构建
+make lint           # go vet + gofmt + eslint
+make tidy           # 整理后端依赖（固定 Go 1.24 基线，不会顶高 go 指令）
+make docker-build   # 构建本机架构镜像
+make docker-release # 构建并推送 amd64 + arm64 双架构镜像
+make docker-mirror  # 把已构建好的多架构镜像从一个仓库搬运到另一个
 ```
+
+> **交叉构建限制**：在 Apple Silicon 上构建 amd64 依赖 QEMU 模拟，Docker Desktop 自带的
+> QEMU 版本较旧时 Go 工具链会在 netpoll 处崩溃（`go mod download` 退出码 2）。
+> 此时用 `make docker-mirror` 搬运 CI 已构建好的多架构清单，或升级 QEMU。
 
 ## 范围说明
 
 **v1.0 做**：Dashboard、Container / Image / Volume / Network 管理、Compose 部署、资源监控历史、事件流、⌘K 命令面板、一键更新全部镜像、单用户鉴权（JWT）、amd64 + arm64 双架构镜像。
 
 **v1.0 不做**：多主机、Swarm / K8s、RBAC 多用户、审计日志、容器内文件浏览器、告警 webhook、应用模板市场（后三项排 v1.1）。详见 [SPEC.md §3](./SPEC.md)。
+
+**v1.1 计划**：容器内文件浏览器 · 告警 webhook（飞书/钉钉/Telegram/Slack）· 应用模板市场 · 备份恢复。相关表结构已在 v1.0 预留。
+
+**已知限制**：
+- 容器内看不到宿主机 `/var/lib/docker`，故卷的 `sizeBytes` 恒为 0、磁盘挂载点按 `/` 统计
+- WebSocket 终端与日志的 Origin 校验要求面板与前端同源，跨域反代需自行放行
+- 面板以特权模式 + docker.sock 运行，权限等同宿主机 root，仅限可信网络使用
 
 ## License
 
